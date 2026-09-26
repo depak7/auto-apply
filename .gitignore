@@ -6,3 +6,4 @@ samples/
 data/
 web/dist/
 .idea/
+/dist/

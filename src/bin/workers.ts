@@ -15,6 +15,7 @@ const deps = {
   temporal,
   connection: await NativeConnection.connect(connectionOptions(temporal)),
   store: await connectStore(),
+  shared: true,
 };
 const workers = [await createMainWorker(deps), await createApplyWorker(deps)];
 

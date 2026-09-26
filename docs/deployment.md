@@ -123,10 +123,17 @@ heroku ps:scale web=1 workers=1 worker=0 applyworker=0 -a <app>
 heroku ps:scale web=1 worker=1 applyworker=1 workers=0 -a <app>
 ```
 
-Measured in this image under a 512 MB limit, running as a non-root user like Heroku: Chromium on
-Workday pages, with full-page screenshots, peaked at **380 MB**. That figure includes the `npx`
-wrapper (about 40 MB), which the dynos don't run. So the browser fits a 512 MB dyno with little
-headroom. If the logs show `R14 (Memory quota exceeded)`, move the dyno that runs the browser
+Measured in this image under a 512 MB limit, running as a non-root user like Heroku: both workers
+in one process idle at about **165 MB**, and peak at about **430 MB** with Chromium on Workday pages
+(job page, application page, full-page screenshots). Three things keep it there:
+
+- The workflow code is bundled when the image is built (`src/bin/bundle-workflows.ts`), so webpack
+  never runs on the dyno.
+- Node runs the TypeScript directly (type stripping): no loader in memory.
+- Chromium runs without site isolation and skips images, video, and web fonts, which the agent
+  never needs. Screenshots of Workday pages therefore show no pictures.
+
+If the logs still show `R14 (Memory quota exceeded)`, move the dyno that runs the browser
 (`workers` or `applyworker`) to a Standard-2X dyno (1 GB).
 
 ### Limits

@@ -25,7 +25,11 @@ function checkKey(key: string): string {
 }
 
 export class LocalFileStore implements FileStore {
-  constructor(private readonly root: string) {}
+  private readonly root: string;
+
+  constructor(root: string) {
+    this.root = root;
+  }
 
   async put(key: string, data: Buffer, _contentType?: string): Promise<void> {
     const path = join(this.root, checkKey(key));
@@ -44,7 +48,11 @@ export class LocalFileStore implements FileStore {
 }
 
 export class BlobFileStore implements FileStore {
-  constructor(private readonly token: string) {}
+  private readonly token: string;
+
+  constructor(token: string) {
+    this.token = token;
+  }
 
   async put(key: string, data: Buffer, contentType: string): Promise<void> {
     // Keys are chosen by the app, so the same key replaces the file (e.g. the latest screenshot).

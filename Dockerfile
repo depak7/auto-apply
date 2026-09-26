@@ -23,13 +23,14 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 RUN npm ci --omit=dev --ignore-scripts \
- && npm install --no-save tsx \
  && npx playwright install --with-deps --only-shell chromium \
  && chmod -R a+rX /ms-playwright
 
 COPY tsconfig.json ./
 COPY src ./src
 COPY --from=web /app/web/dist ./web/dist
+# Workers load this bundle instead of running webpack at every start.
+RUN node src/bin/bundle-workflows.ts
 
 # DATA_DIR holds files only when no Vercel Blob token is set (compose mounts a volume there).
 ENV DATA_DIR=/data NODE_ENV=production

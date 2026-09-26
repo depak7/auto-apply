@@ -123,7 +123,11 @@ const iso = (value: unknown) => (value instanceof Date ? value.toISOString() : v
 type Row = Record<string, unknown>;
 
 export class Store {
-  constructor(private readonly db: Db) {}
+  private readonly db: Db;
+
+  constructor(db: Db) {
+    this.db = db;
+  }
 
   /** Connect to `url`, create the schema if one is given, apply pending migrations, and return a ready store. */
   static async connect(url: string, options: PostgresOptions = {}): Promise<Store> {

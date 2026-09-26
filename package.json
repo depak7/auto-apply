@@ -5,14 +5,14 @@
   "description": "Tailor your resume to a Workday job, review every change, and let a browser agent fill in the application.",
   "type": "module",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.18"
   },
   "scripts": {
     "db": "docker compose up -d postgres",
-    "api": "tsx src/bin/api.ts",
-    "worker": "tsx src/bin/worker.ts",
-    "apply-worker": "tsx src/bin/apply-worker.ts",
-    "workers": "tsx src/bin/workers.ts",
+    "api": "node src/bin/api.ts",
+    "worker": "node src/bin/worker.ts",
+    "apply-worker": "node src/bin/apply-worker.ts",
+    "workers": "node src/bin/workers.ts",
     "temporal": "temporal server start-dev --db-filename data/temporal.db",
     "web:dev": "vite web",
     "web:build": "vite build web",

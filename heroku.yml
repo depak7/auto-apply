@@ -1,22 +1,23 @@
 # Heroku container deploy: one image, three process types.
 #   heroku stack:set container && git push heroku main
-# Processes start Node directly (not through npm) to keep memory low on small dynos. Workers cap
-# Node's heap below the 512 MB dyno limit, which Node does not detect itself (Chromium is separate).
+# Processes start Node directly (not through npm or a TypeScript loader: Node runs .ts itself) to keep
+# memory low on small dynos. Workers cap Node's heap below the 512 MB dyno limit, which Node does not
+# detect itself (Chromium is separate).
 # Run either `worker` + `applyworker`, or `workers` (both in one dyno, e.g. on Eco).
 build:
   docker:
     web: Dockerfile
 run:
-  web: node --import tsx src/bin/api.ts
+  web: node src/bin/api.ts
   worker:
     command:
-      - node --max-old-space-size=320 --import tsx src/bin/worker.ts
+      - node --max-old-space-size=320 src/bin/worker.ts
     image: web
   applyworker:
     command:
-      - node --max-old-space-size=320 --import tsx src/bin/apply-worker.ts
+      - node --max-old-space-size=320 src/bin/apply-worker.ts
     image: web
   workers:
     command:
-      - node --max-old-space-size=320 --import tsx src/bin/workers.ts
+      - node --max-old-space-size=320 src/bin/workers.ts
     image: web
