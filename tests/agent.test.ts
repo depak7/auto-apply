@@ -27,6 +27,9 @@ const FAKE_WORKDAY = `<!doctype html><html><body><main id="app"></main><script>
       '<label for="pw">Password*</label><input id="pw" type="password" data-automation-id="password" required>' +
       '<input data-automation-id="beecatcher" aria-label="Enter website. This input is for robots only, do not enter if you\\'re human.">' +
       '<button data-automation-id="signInSubmitButton" onclick="window.pw = pw.value; window.bee = document.querySelector(\\'[data-automation-id=beecatcher]\\').value; show(\\'info\\')">Sign In</button>',
+    verify: () => progress(1, 3, 'Create Account/Sign In') +
+      '<p>We sent a code to your email.</p><label for="vc">Verification Code*</label><input id="vc" required>' +
+      '<button onclick="window.code = vc.value; show(\\'info\\')">Verify</button>',
     applied: () => '<h2>Engineer</h2><p>You applied for this job on September 22, 2026</p><button>View Application</button>',
     stuck: () => progress(2, 3, 'My Information') + '<button>My Information</button>',
     exEmployee: () => progress(2, 3, 'Application Questions') +
@@ -95,6 +98,8 @@ function scriptedJev(opts: { claimReviewEarly?: boolean; support?: number | ((op
         ["FILL", "fill", /"Email Address\*" required empty/],
         ["FILL", "fill", /"Password\*" required empty/],
         ["CLICK", "click", /"Sign In"/],
+        ["FILL", "fill", /"Verification Code\*" required empty/],
+        ["CLICK", "click", /"Verify"/],
         ["FILL", "fill", /"Given Name\(s\)\*" required empty/],
         ["UPLOAD", "upload", /file/],
         ["CLICK", "click", /"Save and Continue"/],
@@ -254,4 +259,45 @@ it("when Jev's answer isn't supported, picks the option that is ('No' instead of
 
   expect(await page.isChecked("#exn")).toBe(true);
   expect(await page.isChecked("#exy")).toBe(false);
+});
+
+describe("verification codes", () => {
+  it("asks the user for the code, types it, and never sends it to a model", async () => {
+    await page.evaluate(() => (globalThis as any).show("verify"));
+    const text = recordingTextModel();
+    const asked: string[] = [];
+    const result = await runAgent({
+      page,
+      facts,
+      creds,
+      resumePdf: pdf,
+      jev: scriptedJev().model,
+      text: text.model,
+      maxSteps: 3,
+      askCode: async (question) => {
+        asked.push(question);
+        return "482913";
+      },
+    });
+    expect(asked).toEqual(["Verification Code*"]);
+    expect(await page.evaluate(() => (globalThis as any).code)).toBe("482913");
+    expect(result.trace.some((t) => /verification code \(from the user\)/.test(t.result))).toBe(true);
+    expect(text.prompts.join("")).not.toContain("482913");
+    expect(text.prompts.join("")).not.toContain("Verification Code");
+  });
+
+  it("fails without retrying when no code arrives", async () => {
+    await page.evaluate(() => (globalThis as any).show("verify"));
+    const result = await runAgent({
+      page,
+      facts,
+      creds,
+      resumePdf: pdf,
+      jev: scriptedJev().model,
+      text: recordingTextModel().model,
+      maxSteps: 3,
+      askCode: async () => null,
+    });
+    expect(result).toMatchObject({ status: "failed", retry: false });
+  });
 });

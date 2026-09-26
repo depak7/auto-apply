@@ -5,7 +5,7 @@
 | Process | Entry point | Responsibility |
 | --- | --- | --- |
 | Temporal | `npm run temporal` | Workflow state, timers, and task queues |
-| API | `src/bin/api.ts` | HTTP API under `/api`, the UI, and the app password |
+| API | `src/bin/api.ts` | HTTP API under `/api`, the UI, and Google sign-in |
 | Worker | `src/bin/worker.ts` | Runs workflows and the `autoapply` queue: fetch, score, tailor, render |
 | Apply worker | `src/bin/apply-worker.ts` | Runs the `apply` queue: the browser agent and submission (one at a time) |
 

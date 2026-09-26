@@ -37,10 +37,12 @@ export function buildFacts(
     email,
     // Jev must know a password exists, but never sees it: code types it (see values.ts).
     password: "(available: typed by the system into password fields)",
+    // Codes Workday emails during sign-in: the system asks the candidate and types it.
+    verification_code: "(available: the system asks the candidate and types it into verification code fields)",
     phone_number: phone.number, // national number, digits only: forms ask for the code separately
     phone_country_code: phone.code, // e.g. "+91"
     address: profile.address,
-    links: resume?.links ?? [],
+    links: profile.links.length ? profile.links : (resume?.links ?? []),
     current_title: latest?.title ?? null,
     current_company: latest ? (latest.end ? null : latest.company) : null,
     skills: resume?.skills ?? [],

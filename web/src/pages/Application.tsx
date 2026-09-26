@@ -86,6 +86,8 @@ function Stage({ app, onChange }: { app: ApplicationDetail; onChange: () => void
       return <ReviewChanges app={app} onChange={onChange} />;
     case "NEEDS_INPUT":
       return <AnswerQuestions app={app} onChange={onChange} />;
+    case "NEEDS_CODE":
+      return <EnterCode app={app} onChange={onChange} />;
     case "READY_TO_SUBMIT":
       return <ReadyToSubmit app={app} onChange={onChange} />;
     case "SUBMITTED":
@@ -304,6 +306,53 @@ function AnswerQuestions({ app, onChange }: { app: ApplicationDetail; onChange: 
           </Button>
         </div>
       </form>
+    </Panel>
+  );
+}
+
+// Stage: Workday emailed a verification code; the browser waits on that page for it.
+
+function EnterCode({ app, onChange }: { app: ApplicationDetail; onChange: () => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const question = app.questions[0]?.replace(/\*$/, "") ?? "Verification code";
+
+  async function send(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.enterCode(app.id, code.trim());
+      onChange();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Panel title="Enter the code Workday sent you">
+      <p className="-mt-1 text-[15px] text-zinc-600">
+        {app.company ?? "Workday"} sent a verification code to your Workday email. The application is open and waiting
+        on that page for about 10 minutes.
+      </p>
+      <form onSubmit={send} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="block flex-1">
+          <span className="text-sm font-medium text-zinc-700">{question}</span>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            autoComplete="one-time-code"
+            spellCheck={false}
+            className="mt-1.5 w-full rounded-lg border-0 px-3.5 py-2.5 font-mono text-lg tracking-[0.3em] ring-1 ring-zinc-200 focus:ring-2 focus:ring-brand-600 focus:outline-none"
+          />
+        </label>
+        <Button type="submit" busy={busy} disabled={!code.trim()} className="sm:px-6">
+          Continue
+        </Button>
+      </form>
+      {error && <Notice>{error}</Notice>}
     </Panel>
   );
 }

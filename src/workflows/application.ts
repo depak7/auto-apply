@@ -35,14 +35,14 @@ const work = proxyActivities<Activities>({
 // Filling never submits, so one retry (e.g. the browser crashed) is safe.
 const browser = proxyActivities<ApplyActivities>({
   taskQueue: APPLY_QUEUE,
-  startToCloseTimeout: "20 minutes",
+  startToCloseTimeout: "30 minutes", // filling, plus up to 10 minutes waiting for a verification code
   retry: { maximumAttempts: 2 },
 });
 
 // Submitting is never retried by Temporal: one click, ever (the activity also records the attempt first).
 const submitter = proxyActivities<ApplyActivities>({
   taskQueue: APPLY_QUEUE,
-  startToCloseTimeout: "20 minutes",
+  startToCloseTimeout: "30 minutes",
   retry: { maximumAttempts: 1 },
 });
 

@@ -1,12 +1,29 @@
 import { Link, Route, Switch, useLocation } from "wouter";
 
-import { cx } from "./components/ui.tsx";
+import { Avatar, Button, cx, Spinner } from "./components/ui.tsx";
 import { ApplicationPage } from "./pages/Application.tsx";
 import { ApplicationsPage } from "./pages/Applications.tsx";
 import { ProfilePage } from "./pages/Profile.tsx";
 import { ResumeReviewPage } from "./pages/ResumeReview.tsx";
+import { SignInPage } from "./pages/SignIn.tsx";
+import { SessionProvider, useSession } from "./session.tsx";
 
 export function App() {
+  return (
+    <SessionProvider
+      signIn={(onSignedIn) => <SignInPage onSignedIn={onSignedIn} />}
+      loading={
+        <div className="flex min-h-dvh items-center justify-center text-zinc-400">
+          <Spinner />
+        </div>
+      }
+    >
+      <Shell />
+    </SessionProvider>
+  );
+}
+
+function Shell() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-zinc-200/70 bg-white/80 backdrop-blur">
@@ -15,10 +32,13 @@ export function App() {
             <img src="/favicon.svg" alt="" className="size-7" />
             <span className="text-[15px] font-semibold tracking-tight">AutoApply</span>
           </Link>
-          <nav className="flex items-center gap-1">
-            <NavLink href="/">Applications</NavLink>
-            <NavLink href="/profile">Profile</NavLink>
-          </nav>
+          <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-1">
+              <NavLink href="/">Applications</NavLink>
+              <NavLink href="/profile">Profile</NavLink>
+            </nav>
+            <UserMenu />
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -32,6 +52,21 @@ export function App() {
           </Route>
         </Switch>
       </main>
+    </div>
+  );
+}
+
+function UserMenu() {
+  const { me, signOut } = useSession();
+  const name = me.user.name ?? me.user.email;
+  return (
+    <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+      <Link href="/profile" title={`${name} · ${me.user.email}`}>
+        <Avatar name={name} picture={me.user.picture} />
+      </Link>
+      <Button variant="ghost" className="hidden px-2.5 sm:inline-flex" onClick={signOut}>
+        Sign out
+      </Button>
     </div>
   );
 }

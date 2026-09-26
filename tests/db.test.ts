@@ -1,10 +1,11 @@
 import pg from "pg";
 import { describe, expect, it } from "vitest";
-
+import { EMPTY_PROFILE } from "../src/schemas/index.ts";
 import { postgresOptions } from "../src/store/db.ts";
 import { MIGRATIONS, migrate } from "../src/store/migrations.ts";
+import { Store } from "../src/store/store.ts";
 import { SAMPLE_RESUME } from "./mocks.ts";
-import { pgliteDb, testStore } from "./pglite.ts";
+import { pgliteDb, testStore, testUser } from "./pglite.ts";
 
 describe("migrations", () => {
   it("apply once, in order, and are recorded", async () => {
@@ -19,11 +20,12 @@ describe("migrations", () => {
 describe("Store", () => {
   it("round-trips resumes and applications through jsonb, validated on read", async () => {
     const store = await testStore();
-    const resume = await store.addResume(SAMPLE_RESUME, "/files/r.pdf");
+    const me = await testUser(store);
+    const resume = await store.addResume(me, SAMPLE_RESUME, "/files/r.pdf");
     expect((await store.getResume(resume.id))?.resume).toEqual(SAMPLE_RESUME);
 
-    const app = await store.createApplication("https://x.wd1.myworkdayjobs.com/s/job/j", resume.id);
-    expect(app).toMatchObject({ status: "CREATED", job: null, score: null, resumeId: resume.id });
+    const app = await store.createApplication(me, "https://x.wd1.myworkdayjobs.com/s/job/j", resume.id);
+    expect(app).toMatchObject({ status: "CREATED", job: null, score: null, resumeId: resume.id, userId: me });
 
     const score = {
       overall: 40,
@@ -38,12 +40,13 @@ describe("Store", () => {
 
     const cleared = await store.updateApplication(app.id, { questions: null, error: null });
     expect(cleared.questions).toBeNull();
-    expect((await store.listApplications()).map((a) => a.id)).toEqual([app.id]);
+    expect((await store.listApplications(me)).map((a) => a.id)).toEqual([app.id]);
   });
 
   it("stores timestamps as timestamps", async () => {
     const store = await testStore();
-    const app = await store.createApplication("u", (await store.addResume(SAMPLE_RESUME)).id);
+    const me = await testUser(store);
+    const app = await store.createApplication(me, "u", (await store.addResume(me, SAMPLE_RESUME)).id);
     const at = "2026-09-25T10:00:00.000Z";
     expect((await store.updateApplication(app.id, { submitAttemptedAt: at })).submitAttemptedAt).toBe(at);
   });
@@ -56,15 +59,57 @@ describe("Store", () => {
 
   it("rejects an application for a resume that doesn't exist", async () => {
     const store = await testStore();
-    await expect(store.createApplication("u", crypto.randomUUID())).rejects.toThrow();
+    await expect(store.createApplication(await testUser(store), "u", crypto.randomUUID())).rejects.toThrow();
   });
 
-  it("profile: empty by default, one row, answers merged", async () => {
+  it("profile: empty by default, one per user, answers merged", async () => {
     const store = await testStore();
-    expect((await store.getProfile()).answers).toEqual({});
-    await store.addAnswers({ "notice period": "30 days" });
-    await store.addAnswers({ "desired salary": "negotiable" });
-    expect((await store.getProfile()).answers).toEqual({ "notice period": "30 days", "desired salary": "negotiable" });
+    const [asha, ben] = [await testUser(store, "asha"), await testUser(store, "ben")];
+    expect((await store.getProfile(asha)).answers).toEqual({});
+    await store.addAnswers(asha, { "notice period": "30 days" });
+    await store.addAnswers(asha, { "desired salary": "negotiable" });
+    expect((await store.getProfile(asha)).answers).toEqual({
+      "notice period": "30 days",
+      "desired salary": "negotiable",
+    });
+    expect((await store.getProfile(ben)).answers).toEqual({});
+  });
+
+  it("the first user to sign in claims rows from before sign-in existed; later users don't", async () => {
+    const db = pgliteDb();
+    await migrate(db);
+    // A resume, application, and profile saved before users existed (no owner).
+    const resumeId = crypto.randomUUID();
+    await db.query("INSERT INTO resumes (id, name, resume) VALUES ($1, 'Asha', $2::jsonb)", [
+      resumeId,
+      JSON.stringify(SAMPLE_RESUME),
+    ]);
+    await db.query("INSERT INTO applications (id, url, resume_id, status) VALUES ($1, 'u', $2, 'CREATED')", [
+      crypto.randomUUID(),
+      resumeId,
+    ]);
+    await db.query("INSERT INTO profile (id, profile) VALUES (1, $1::jsonb)", [
+      JSON.stringify({ ...EMPTY_PROFILE, answers: { "notice period": "30 days" } }),
+    ]);
+    const store = new Store(db);
+
+    const first = await testUser(store, "asha");
+    const second = await testUser(store, "ben");
+    expect(await store.listResumes(first)).toHaveLength(1);
+    expect(await store.listApplications(first)).toHaveLength(1);
+    expect((await store.getProfile(first)).answers).toEqual({ "notice period": "30 days" });
+    expect(await store.listResumes(second)).toEqual([]);
+  });
+
+  it("scopes lookups to the owner when asked", async () => {
+    const store = await testStore();
+    const [asha, ben] = [await testUser(store, "asha"), await testUser(store, "ben")];
+    const resume = await store.addResume(asha, SAMPLE_RESUME);
+    const app = await store.createApplication(asha, "u", resume.id);
+    expect(await store.getResume(resume.id, ben)).toBeNull();
+    expect(await store.getApplication(app.id, ben)).toBeNull();
+    expect((await store.getApplication(app.id, asha))?.id).toBe(app.id);
+    expect((await store.getApplication(app.id))?.id).toBe(app.id); // workers: by id alone
   });
 });
 

@@ -8,8 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApplyActivities } from "../src/apply/activities.ts";
 import { clickSubmitOnce, NotReadyToSubmit } from "../src/apply/submit.ts";
 import { MemoryFileStore } from "../src/files/store.ts";
+import { SecretBox } from "../src/lib/secrets.ts";
 import { SAMPLE_RESUME } from "./mocks.ts";
-import { testStore } from "./pglite.ts";
+import { testStore, testUser } from "./pglite.ts";
 
 const ORIGIN = "https://fake.myworkdayjobs.test";
 
@@ -78,12 +79,14 @@ describe("clickSubmitOnce", () => {
 
 it("submitApplication never clicks twice: an earlier attempt means no browser at all", async () => {
   const store = await testStore();
-  const app = await store.createApplication(`${ORIGIN}/site/job/x`, (await store.addResume(SAMPLE_RESUME)).id);
+  const me = await testUser(store);
+  const app = await store.createApplication(me, `${ORIGIN}/site/job/x`, (await store.addResume(me, SAMPLE_RESUME)).id);
   await store.updateApplication(app.id, { status: "READY_TO_SUBMIT", submitAttemptedAt: "2026-09-25T10:00:00Z" });
 
   const activities = createApplyActivities({
     store,
     files: new MemoryFileStore(),
+    secrets: new SecretBox(Buffer.alloc(32, 1).toString("base64")),
     open: async () => {
       throw new Error("must not open a browser");
     },

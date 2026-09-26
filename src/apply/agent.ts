@@ -33,6 +33,11 @@ export interface AgentOptions {
   text?: LanguageModel;
   maxSteps?: number;
   onStep?: (entry: TraceEntry, page: Page) => void | Promise<void>;
+  /**
+   * Workday is asking for a verification code: ask the user, with the browser left open on the
+   * page. Resolves to the code, or null if none arrived in time. Without it, the run fails there.
+   */
+  askCode?: (question: string) => Promise<string | null>;
 }
 
 export interface TraceEntry {
@@ -50,7 +55,7 @@ export type Done =
   | { status: "at_review" } // filled in; waiting for the user to submit
   | { status: "already_applied" } // Workday says this account applied before
   | { status: "blocked"; questions: string[]; reason: string } // needs the user (NEEDS_INPUT)
-  | { status: "failed"; reason: string };
+  | { status: "failed"; reason: string; retry?: false }; // retry: false -> running it again won't help
 
 export type AgentResult = Done & { trace: TraceEntry[] };
 
@@ -118,7 +123,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       continue;
     }
     // A failed click or fill is recorded and the agent looks again; it does not end the run.
-    const outcome = await act(page, snap, decision, facts, creds, resumePdf, memory, opts.text, opts.jev).catch(
+    const outcome = await act(page, snap, decision, { ...opts, facts, creds, resumePdf, memory }).catch(
       (e): Outcome => ({ note: `${decision.operation.toLowerCase()} failed: ${(e as Error).message.split("\n")[0]}` }),
     );
 
@@ -162,17 +167,12 @@ interface Outcome {
   done?: Done;
 }
 
-async function act(
-  page: Page,
-  snap: PageSnapshot,
-  d: Decision,
-  facts: Facts,
-  creds: Credentials,
-  resumePdf: ResumeFile | null,
-  memory: Memory,
-  text?: LanguageModel,
-  jev?: Experimental_EvaluationModel,
-): Promise<Outcome> {
+type ActContext = Pick<AgentOptions, "facts" | "creds" | "resumePdf" | "text" | "jev" | "askCode"> & {
+  memory: Memory;
+};
+
+async function act(page: Page, snap: PageSnapshot, d: Decision, ctx: ActContext): Promise<Outcome> {
+  const { facts, creds, resumePdf, memory, text, jev } = ctx;
   // No .first(): if a number ever matched two elements, Playwright errors instead of guessing.
   const el = (f: FormField) => page.locator(`[data-aa-idx="${f.idx}"]`);
 
@@ -195,6 +195,10 @@ async function act(
       const fresh = await readPage(page).catch(() => snap);
       const questions = openQuestions(fresh);
       if (questions.length === 0) return { note: "blocked, but no required field is open: looking again" };
+
+      // A verification code comes from the user, while the browser waits on this page.
+      const codeField = openTextFields(fresh).find(isCodeField);
+      if (codeField) return enterCode(page, codeField, ctx);
 
       // Second opinion: if any open text field CAN be answered from the facts, fill it instead.
       for (const field of openTextFields(fresh)) {
@@ -264,6 +268,7 @@ async function act(
 
     case "FILL": {
       if (!d.target) return { note: "no target" };
+      if (isCodeField(d.target)) return enterCode(page, d.target, ctx);
       const v = await valueFor(d.target, facts, creds, text);
       if ("missing" in v) {
         if (!d.target.required) {
@@ -295,6 +300,34 @@ async function act(
       return { note: "uploaded resume" };
     }
   }
+}
+
+// "Verification Code", "One-time passcode", "Security code", "Enter the code we sent", "OTP".
+const CODE_FIELD =
+  /verification code|verify code|one[- ]?time (?:pass)?code|passcode|security code|authentication code|enter (?:the )?code|\bOTP\b/i;
+const CODE_KINDS = new Set(["text", "tel", "number", "password"]);
+
+export const isCodeField = (f: FormField) =>
+  CODE_KINDS.has(f.kind) && (CODE_FIELD.test(f.label) || CODE_FIELD.test(f.question ?? ""));
+
+/** Ask the user for the code Workday sent, and type it. The code never goes to a model. */
+async function enterCode(page: Page, field: FormField, ctx: ActContext): Promise<Outcome> {
+  const question = field.question && field.question !== field.label ? field.question : field.label;
+  if (!ctx.askCode) {
+    return {
+      note: "verification code needed",
+      done: { status: "failed", reason: `Workday asked for a verification code ("${question}")`, retry: false },
+    };
+  }
+  const code = await ctx.askCode(question);
+  if (!code) {
+    return {
+      note: "no verification code entered",
+      done: { status: "failed", reason: "No verification code was entered in time", retry: false },
+    };
+  }
+  await page.locator(`[data-aa-idx="${field.idx}"]`).fill(code, { timeout: 5_000 });
+  return { note: "typed the verification code (from the user)" };
 }
 
 const MAX_ALTERNATIVES = 12; // options checked when Jev's pick is rejected (a Yes/No question has 1)

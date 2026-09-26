@@ -64,6 +64,44 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE applications RENAME COLUMN screenshot_path TO screenshot_key;
     `,
   },
+  {
+    version: 3,
+    name: "users: sign-in, and each user's own data",
+    sql: `
+      CREATE TABLE users (
+        id             uuid PRIMARY KEY,
+        google_sub     text NOT NULL UNIQUE,  -- Google's stable user id ("local" in development)
+        email          text NOT NULL,
+        name           text,
+        picture        text,
+        created_at     timestamptz NOT NULL DEFAULT now(),
+        last_login_at  timestamptz NOT NULL DEFAULT now()
+      );
+
+      -- Rows from before sign-in existed have no owner; the first user to sign in claims them.
+      ALTER TABLE resumes ADD COLUMN user_id uuid REFERENCES users (id) ON DELETE CASCADE;
+      ALTER TABLE applications ADD COLUMN user_id uuid REFERENCES users (id) ON DELETE CASCADE;
+      CREATE INDEX resumes_user_idx ON resumes (user_id, created_at DESC);
+      CREATE INDEX applications_user_idx ON applications (user_id, created_at DESC);
+
+      -- A verification code the user typed for a running application; cleared once the agent reads it.
+      ALTER TABLE applications ADD COLUMN code text;
+
+      CREATE TABLE profiles (
+        user_id     uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+        profile     jsonb NOT NULL,
+        updated_at  timestamptz NOT NULL DEFAULT now()
+      );
+
+      -- The Workday login the agent signs in with. The password is encrypted (AES-256-GCM) by the app.
+      CREATE TABLE workday_accounts (
+        user_id          uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+        email            text NOT NULL,
+        password_sealed  text NOT NULL,
+        updated_at       timestamptz NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
 
 // Arbitrary constant identifying this app's migration lock.

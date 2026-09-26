@@ -30,3 +30,8 @@ export async function testStore(): Promise<Store> {
   await migrate(db);
   return new Store(db);
 }
+
+/** Sign a test user in and return their id. */
+export async function testUser(store: Store, name = "asha"): Promise<string> {
+  return (await store.signIn({ sub: `g-${name}`, email: `${name}@example.com`, name, picture: null })).id;
+}

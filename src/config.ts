@@ -48,7 +48,34 @@ export const DATABASE_SCHEMA = process.env.DATABASE_SCHEMA || undefined;
 export const DATA_DIR = process.env.DATA_DIR || join(ROOT, "data");
 export const API_PORT = Number(process.env.PORT || 3000);
 
-/** The Workday account used to sign in (one per person; Workday keeps a separate account per company). */
+const PRODUCTION = process.env.NODE_ENV === "production";
+
+/** A secret from the environment. Development falls back to `devValue`; production refuses to start without it. */
+function secretEnv(name: string, devValue: string): string {
+  const value = process.env[name]?.trim();
+  if (value) return value;
+  if (PRODUCTION) throw new Error(`${name} is not set`);
+  return devValue;
+}
+
+/**
+ * Sign-in settings. GOOGLE_CLIENT_ID is required in production: without it the app has a single
+ * local user that anyone could sign in as.
+ */
+export function authConfig() {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || undefined;
+  if (PRODUCTION && !googleClientId) throw new Error("GOOGLE_CLIENT_ID is not set");
+  return {
+    googleClientId,
+    sessionSecret: secretEnv("SESSION_SECRET", "development-only-session-secret"),
+    secureCookies: PRODUCTION,
+  };
+}
+
+/** Key that encrypts users' Workday passwords: 32 bytes, base64 (`openssl rand -base64 32`). */
+export const credentialsKey = () => secretEnv("CREDENTIALS_KEY", Buffer.alloc(32, 1).toString("base64"));
+
+/** A Workday account from the environment, for the developer tools (the app uses each user's own login). */
 export function workdayCredentials() {
   return { email: requireEnv("WORKDAY_EMAIL"), password: requireEnv("WORKDAY_PASSWORD") };
 }

@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url";
 import { type NativeConnection, Worker } from "@temporalio/worker";
 
 import { createApplyActivities } from "../apply/activities.ts";
-import { DATA_DIR, DATABASE_CA_CERT, DATABASE_SCHEMA, DATABASE_URL } from "../config.ts";
+import { credentialsKey, DATA_DIR, DATABASE_CA_CERT, DATABASE_SCHEMA, DATABASE_URL } from "../config.ts";
 import { openFileStore } from "../files/store.ts";
+import { SecretBox } from "../lib/secrets.ts";
 import { Store } from "../store/store.ts";
 import { createActivities } from "./activities.ts";
 import type { TemporalSettings } from "./connection.ts";
@@ -44,6 +45,7 @@ export function createApplyWorker({ connection, temporal, store }: WorkerDeps): 
     activities: createApplyActivities({
       store,
       files: openFileStore(process.env, DATA_DIR),
+      secrets: new SecretBox(credentialsKey()),
       headless: process.env.HEADED !== "1",
     }),
     maxConcurrentActivityTaskExecutions: 1,

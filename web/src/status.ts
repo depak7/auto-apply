@@ -81,6 +81,13 @@ export const STATUS: Record<Status, StatusInfo> = {
     stage: 2,
     working: false,
   },
+  NEEDS_CODE: {
+    label: "Enter the code",
+    detail: "Workday sent you a verification code. Enter it here and we'll carry on.",
+    tone: "action",
+    stage: 2,
+    working: true, // the browser is waiting: keep checking, so the page moves on once the code is in
+  },
   READY_TO_SUBMIT: {
     label: "Ready to submit",
     detail: "Everything is filled in. Check the review page, then submit.",

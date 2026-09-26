@@ -52,7 +52,7 @@ Requirements: Node.js 22.13+, Docker (for Postgres), the [Temporal CLI](https://
 ```bash
 npm install
 npx playwright install chromium
-cp .env.example .env            # fill in AI_GATEWAY_API_KEY, WORKDAY_EMAIL, WORKDAY_PASSWORD
+cp .env.example .env            # fill in AI_GATEWAY_API_KEY
 npm run web:build
 ```
 
@@ -82,8 +82,10 @@ All settings are environment variables; see [`.env.example`](.env.example).
 | --- | --- |
 | `AI_GATEWAY_API_KEY` | Vercel AI Gateway key, used for every model |
 | `AI_MODEL`, `REWRITE_MODEL`, `JEV_MODEL` | Model IDs for parsing, rewriting, and decisions |
-| `WORKDAY_EMAIL`, `WORKDAY_PASSWORD` | Workday account used to apply |
-| `APP_PASSWORD` | Protects the web app (required outside your own machine) |
+| `GOOGLE_CLIENT_ID` | "Sign in with Google" (empty: local development, one local user) |
+| `SESSION_SECRET` | Signs session cookies |
+| `CREDENTIALS_KEY` | Encrypts users' Workday passwords (never change it once set) |
+| `WORKDAY_EMAIL`, `WORKDAY_PASSWORD` | Workday account for the developer tools; the app uses each user's own |
 | `DATABASE_URL` | Postgres connection (default matches `npm run db`) |
 | `DATABASE_CA_CERT` | CA certificate for a Postgres server with its own CA (e.g. Aiven) |
 | `DATABASE_SCHEMA` | Postgres schema for the tables, when the database is shared with other apps |
@@ -160,5 +162,5 @@ See [docs/deployment.md](docs/deployment.md).
 ## Limitations
 
 - Workday only. Other applicant tracking systems need their own sign-in and review handling.
-- Single user: one profile and one Workday account.
+- One Workday login per user, used for every company (Workday keeps a separate account per company).
 - Google and LinkedIn sign-in can't be automated; use a Workday email and password account.

@@ -7,6 +7,7 @@ import { ApiError, type ApplicationSummary, api } from "../api.ts";
 import { Button, Card, Notice, StatusPill, timeAgo } from "../components/ui.tsx";
 import { prettyLocation, prettyTitle } from "../format.ts";
 import { useData } from "../hooks.ts";
+import { useSession } from "../session.tsx";
 import { needsYou, STATUS } from "../status.ts";
 
 export function ApplicationsPage() {
@@ -54,6 +55,7 @@ function NewApplication({ resumeId, loadingResumes }: { resumeId: string | null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, navigate] = useLocation();
+  const { me } = useSession();
 
   async function start(e: FormEvent) {
     e.preventDefault();
@@ -68,6 +70,7 @@ function NewApplication({ resumeId, loadingResumes }: { resumeId: string | null;
       setBusy(false);
     }
   }
+  const needsLogin = !me.workday;
 
   return (
     <Card className="p-6 sm:p-8">
@@ -77,10 +80,14 @@ function NewApplication({ resumeId, loadingResumes }: { resumeId: string | null;
         once you approve.
       </p>
 
-      {!loadingResumes && !resumeId ? (
+      {!loadingResumes && (!resumeId || needsLogin) ? (
         <div className="mt-6">
           <Notice tone="info">
-            First, add your resume.{" "}
+            {!resumeId && needsLogin
+              ? "First, add your resume and the Workday login we apply with."
+              : !resumeId
+                ? "First, add your resume."
+                : "First, add the Workday login we apply with."}{" "}
             <Link href="/profile" className="font-semibold underline underline-offset-2">
               Go to Profile
             </Link>

@@ -184,6 +184,32 @@ export function Notice({ tone = "danger", children }: { tone?: "danger" | "warni
   return <div className={cx("rounded-xl px-4 py-3 text-sm ring-1 ring-inset", styles)}>{children}</div>;
 }
 
+/** The user's photo, or their initial. */
+export function Avatar({
+  name,
+  picture,
+  className = "size-8",
+}: {
+  name: string;
+  picture: string | null;
+  className?: string;
+}) {
+  if (picture)
+    return (
+      <img src={picture} alt="" referrerPolicy="no-referrer" className={cx("rounded-full object-cover", className)} />
+    );
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700",
+        className,
+      )}
+    >
+      {name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
 export function timeAgo(iso: string): string {
   const seconds = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
   const steps: [number, string][] = [

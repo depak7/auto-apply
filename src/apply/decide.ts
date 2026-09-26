@@ -23,6 +23,7 @@ export const GOAL = `Complete this job application form for the candidate.
 - On each page, fill every empty required field using only the candidate facts. Leave fields that already have a value.
 - A dropdown: click it to open the list, then click the option that matches the candidate facts.
 - Attach the resume wherever a resume or CV upload is asked.
+- If a verification code is asked (e.g. sent by email), FILL the code field: the system gets the code from the candidate.
 - When every required field on the page is filled, click "Save and Continue" (or "Next").
 - On the Review page, stop: choose AT_REVIEW. Never click Submit.
 - If a required question cannot be answered from the candidate facts, choose BLOCKED.`;

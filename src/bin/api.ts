@@ -10,28 +10,25 @@ import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { basicAuth } from "hono/basic-auth";
-import { API_PORT, DATA_DIR, DATABASE_CA_CERT, DATABASE_SCHEMA, DATABASE_URL, ROOT } from "../config.ts";
+import { API_PORT, authConfig, credentialsKey, DATA_DIR, ROOT } from "../config.ts";
 import { openFileStore } from "../files/store.ts";
+import { SecretBox } from "../lib/secrets.ts";
 import { createApi } from "../server/api.ts";
-import { Store } from "../store/store.ts";
 import { connectWorkflows } from "../workflows/client.ts";
+import { connectStore } from "../workflows/workers.ts";
 
 const app = new Hono();
-
-// Anyone who can open this app can submit applications with your Workday account, so outside
-// your own machine it must be protected. Set APP_PASSWORD (any username works).
-const password = process.env.APP_PASSWORD;
-if (password) app.use("*", basicAuth({ verifyUser: (_user, pass) => pass === password, realm: "AutoApply" }));
-else
-  console.warn("APP_PASSWORD is not set: the app is open to anyone who can reach it. Fine only on your own machine.");
+const auth = authConfig();
+if (!auth.googleClientId) console.warn("GOOGLE_CLIENT_ID is not set: local development sign-in (one local user).");
 
 app.route(
   "/api",
   createApi({
-    store: await Store.connect(DATABASE_URL, { ca: DATABASE_CA_CERT, schema: DATABASE_SCHEMA }),
+    store: await connectStore(),
     workflows: await connectWorkflows(),
     files: openFileStore(process.env, DATA_DIR),
+    auth,
+    secrets: new SecretBox(credentialsKey()),
   }),
 );
 

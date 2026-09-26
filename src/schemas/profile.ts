@@ -8,6 +8,7 @@ import { z } from "zod";
 export const Profile = z.object({
   firstName: z.string().nullable(), // defaults to the first word of the resume name
   lastName: z.string().nullable(), // defaults to the rest of the resume name
+  email: z.string().nullable().default(null), // contact email from the resume (Workday sign-in uses its own)
   phone: z.string().nullable(), // e.g. "9000000000"
   phoneCountryCode: z.string().nullable(), // e.g. "+91"
   address: z.object({
@@ -17,6 +18,8 @@ export const Profile = z.object({
     postalCode: z.string().nullable(),
     country: z.string().nullable(), // e.g. "India"
   }),
+  links: z.array(z.string()).default([]), // LinkedIn, GitHub, portfolio
+
   // Answers to questions forms ask often, in the user's own words. Examples of keys:
   // "authorized to work", "needs sponsorship", "notice period", "current salary",
   // "desired salary", "how did you hear about us", "worked here before", "relatives working here".
@@ -27,8 +30,10 @@ export type Profile = z.infer<typeof Profile>;
 export const EMPTY_PROFILE: Profile = {
   firstName: null,
   lastName: null,
+  email: null,
   phone: null,
   phoneCountryCode: null,
   address: { line1: null, city: null, state: null, postalCode: null, country: null },
+  links: [],
   answers: {},
 };

@@ -12,7 +12,7 @@ Size: **2 vCPU, 4 GB RAM** minimum (Chromium is the heavy part), 20 GB disk.
 ```bash
 # on the machine
 git clone <your repo> autoapply && cd autoapply
-cp .env.example .env        # then fill it in: AI_GATEWAY_API_KEY, WORKDAY_EMAIL, WORKDAY_PASSWORD, APP_PASSWORD
+cp .env.example .env        # then fill it in: AI_GATEWAY_API_KEY, GOOGLE_CLIENT_ID, SESSION_SECRET, CREDENTIALS_KEY
 docker compose up -d --build   # with TEMPORAL_* for Temporal Cloud in .env
 docker compose ps              # postgres "healthy"; api, worker, apply-worker "running"
 ```
@@ -20,7 +20,7 @@ docker compose ps              # postgres "healthy"; api, worker, apply-worker "
 The app is on port 3000. Workflows are visible in the Temporal Cloud UI (cloud.temporal.io), or on port
 8233 with the local profile (keep that one private).
 
-**Put HTTPS in front before exposing it.** The app password travels with every request, so it
+**Put HTTPS in front before exposing it.** The session cookie travels with every request, so it
 must not go over plain HTTP. The simplest way is [Caddy](https://caddyserver.com), which gets a
 certificate automatically. Add this to `compose.yaml` and point your domain at the machine:
 
@@ -77,8 +77,9 @@ heroku config:set -a <app> \
   TEMPORAL_NAMESPACE='<namespace>.<account>' \
   TEMPORAL_API_KEY='...' \
   AI_GATEWAY_API_KEY='...' \
-  WORKDAY_EMAIL='...' WORKDAY_PASSWORD='...' \
-  APP_PASSWORD='...'
+  GOOGLE_CLIENT_ID='....apps.googleusercontent.com' \
+  SESSION_SECRET="$(openssl rand -base64 32)" \
+  CREDENTIALS_KEY="$(openssl rand -base64 32)"
 
 git push heroku main
 ```
@@ -92,7 +93,20 @@ Then scale the dynos for your plan (see **Dyno plans**).
   also use (such as Aiven's `defaultdb`).
 - Model settings (`AI_MODEL`, `REWRITE_MODEL`, `JEV_MODEL`) default to the values in `.env.example`.
 - Migrations run when each process starts. The first one to start applies them; the others wait.
-- Heroku serves HTTPS, so the app password never travels in plain text.
+- Heroku serves HTTPS, so the session cookie never travels in plain text.
+- `CREDENTIALS_KEY` encrypts users' Workday passwords. Never change or lose it: saved passwords
+  can't be read with another key, and users would have to enter them again.
+
+### Google sign-in
+
+Sign-in uses the client ID only; there is no client secret. In Google Cloud Console, under
+**APIs & Services → Credentials**, open the OAuth client and add the app's address to
+**Authorized JavaScript origins** (e.g. `https://<app>.herokuapp.com`, plus
+`http://localhost:3000` for development). Before anyone outside the test users can sign in,
+**publish** the OAuth consent screen.
+
+The first person to sign in takes ownership of resumes and applications created before sign-in
+existed.
 
 ### Dyno plans
 
