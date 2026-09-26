@@ -35,20 +35,29 @@ try {
 console.log(`done in ${((Date.now() - started) / 1000).toFixed(1)}s\n`);
 
 console.log(`${resume.name} · ${[resume.email, resume.phone, resume.location].filter(Boolean).join(" · ")}`);
-if (resume.links.length) console.log(resume.links.join("  "));
+if (resume.headline) console.log(resume.headline);
+for (const l of resume.contactLinks) console.log(`  ${l.label} -> ${l.url}`);
+console.log(`page: ${resume.page} · sections: ${resume.layout.map((l) => l.title).join(" | ")}`);
 if (resume.summary) console.log(`\n${resume.summary}`);
 
 console.log("\nEXPERIENCE");
 for (const e of resume.experience) {
-  console.log(`  ${e.title} @ ${e.company}  (${e.start} – ${e.end ?? "Present"})`);
+  console.log(`  ${e.title} @ ${e.company}  (${e.start} – ${e.end ?? "Present"})${e.tech ? `  [${e.tech}]` : ""}`);
   for (const b of e.bullets) console.log(`    - ${b}`);
 }
 console.log("\nEDUCATION");
 for (const ed of resume.education) {
   console.log(`  ${[ed.degree, ed.field].filter(Boolean).join(", ")} · ${ed.school} ${ed.end ?? ""}`);
 }
-if (resume.projects.length) console.log(`\nPROJECTS: ${resume.projects.map((p) => p.name).join(", ")}`);
-console.log(`\nSKILLS: ${resume.skills.join(", ")}`);
+for (const p of resume.projects) {
+  console.log(`\nPROJECT ${p.name}${p.links.map((l) => `  ${l.label} -> ${l.url}`).join("")}`);
+}
+for (const section of resume.sections) {
+  console.log(`\n${section.title.toUpperCase()}`);
+  for (const e of section.entries) for (const b of e.bullets) console.log(`    - ${b}`);
+}
+console.log("\nSKILLS");
+for (const g of resume.skillGroups) console.log(`  ${g.label ? `${g.label}: ` : ""}${g.items.join(", ")}`);
 if (resume.certifications.length) console.log(`CERTIFICATIONS: ${resume.certifications.join(", ")}`);
 
 writeFileSync(jsonPath, JSON.stringify(resume, null, 2));

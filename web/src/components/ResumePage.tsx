@@ -1,23 +1,23 @@
-// A resume page exactly as the PDF prints it: the same HTML template, at A4 size, scaled to fitToWidth
-// the available width. Rendered in a sandboxed frame so the page's styles and the app's never mix.
+// A resume page exactly as the PDF prints it: the same HTML template, at the same paper size, scaled
+// to fit the available width. Rendered in a sandboxed frame so the page's styles and the app's never mix.
 
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 
-import { PAGE } from "../../../src/resume/template.ts";
+import type { Page } from "../../../src/resume/template.ts";
 
 export interface ResumePageHandle {
   /** Scroll so change `n` is in view, and flash it. */
   show(n: number): void;
 }
 
-export const ResumePage = forwardRef<ResumePageHandle, { html: string; maxScale?: number; label?: string }>(
-  function ResumePage({ html, maxScale = 1, label }, ref) {
+export const ResumePage = forwardRef<ResumePageHandle, { html: string; page: Page; maxScale?: number; label?: string }>(
+  function ResumePage({ html, page: PAGE, maxScale = 1, label }, ref) {
     const box = useRef<HTMLDivElement>(null);
     const frame = useRef<HTMLIFrameElement>(null);
     const [scale, setScale] = useState(1);
     const [height, setHeight] = useState(PAGE.heightPx);
 
-    // Fit the A4 width into the column.
+    // Fit the page's width into the column.
     useLayoutEffect(() => {
       const el = box.current;
       if (!el) return;
@@ -26,7 +26,7 @@ export const ResumePage = forwardRef<ResumePageHandle, { html: string; maxScale?
       const observer = new ResizeObserver(fitToWidth);
       observer.observe(el);
       return () => observer.disconnect();
-    }, [maxScale]);
+    }, [maxScale, PAGE.widthPx]);
 
     // The frame is as tall as its content: no inner scrollbar.
     // biome-ignore lint/correctness/useExhaustiveDependencies: a new `html` reloads the frame, which must be re-measured
@@ -36,7 +36,7 @@ export const ResumePage = forwardRef<ResumePageHandle, { html: string; maxScale?
       const measure = () => setHeight(Math.max(PAGE.heightPx, f.contentDocument?.documentElement.scrollHeight ?? 0));
       f.addEventListener("load", measure);
       return () => f.removeEventListener("load", measure);
-    }, [html]);
+    }, [html, PAGE.heightPx]);
 
     useImperativeHandle(ref, () => ({
       show(n) {

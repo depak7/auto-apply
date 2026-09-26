@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { TAILORING } from "../config.ts";
 import { words } from "../lib/words.ts";
-import { editableLines, getText, isReorderOnly } from "../resume/edits.ts";
+import { editableLines, getText, isReorderOnly, isSkillsPath } from "../resume/edits.ts";
 import { resumeToText } from "../resume/text.ts";
 import type { Edit, Requirement, Resume } from "../schemas/index.ts";
 import { REWRITE_SYSTEM } from "./prompts.ts";
@@ -38,7 +38,7 @@ export async function proposeEdits(
   // Each line comes with what its rewrite must keep, so the rewriter doesn't drop it.
   const lines = editableLines(resume)
     .map((l) => {
-      const keep = l.path === "skills" ? [] : mustKeep(l.text);
+      const keep = isSkillsPath(l.path) ? [] : mustKeep(l.text);
       const mustKeepLine = keep.length ? `\n    must keep: ${keep.join(", ")}` : "";
       return `[${l.path}] ${l.text}${mustKeepLine}`;
     })
@@ -66,9 +66,9 @@ export async function proposeEdits(
   return output.edits.slice(0, TAILORING.maxEditsPerRound).map((p, i) => {
     const before = getText(resume, p.path);
     const after = plainText(p.after);
-    const onlyInserts = before !== null && p.path !== "skills" ? insertionOnly(before, after) : null;
+    const onlyInserts = before !== null && !isSkillsPath(p.path) ? insertionOnly(before, after) : null;
     const repetitive = !!onlyInserts && onlyInserts.every((w) => insertedSoFar.has(w));
-    const trivial = before !== null && p.path !== "skills" && trivialChange(before, after);
+    const trivial = before !== null && !isSkillsPath(p.path) && trivialChange(before, after);
     const valid =
       before !== null &&
       after !== "" &&
@@ -76,7 +76,7 @@ export async function proposeEdits(
       !seen.has(p.path) &&
       !repetitive &&
       !trivial &&
-      (p.path !== "skills" || isReorderOnly(before, after));
+      (!isSkillsPath(p.path) || isReorderOnly(before, after));
     seen.add(p.path);
     for (const w of onlyInserts ?? []) insertedSoFar.add(w);
     return {
@@ -128,7 +128,7 @@ export async function repairEdits(
   const resumeText = resumeToText(original);
   const jobKeywords = requirements.flatMap((r) => r.keywords);
   const problems = edits
-    .filter((e) => e.status === "applied" && e.path !== "skills")
+    .filter((e) => e.status === "applied" && !isSkillsPath(e.path))
     .map((e) => {
       const issues = [
         ...inventedNumbers(e.before, e.after).map((n) => `adds the number ${n}, which the original doesn't have`),

@@ -4,11 +4,12 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 
-import { type ReviewMode, resumeHtml } from "../../../src/resume/template.ts";
+import { pageOf, type ReviewMode, resumeHtml } from "../../../src/resume/template.ts";
 import { ApiError, type ApplicationDetail, api, files } from "../api.ts";
 import { cleanReason, pathLabel, WordDiff } from "../components/Diff.tsx";
 import { ResumePage, type ResumePageHandle } from "../components/ResumePage.tsx";
 import { Button, Card, cx, Notice, Spinner } from "../components/ui.tsx";
+import { RESUME_FONTS } from "../fonts.ts";
 import { prettyTitle } from "../format.ts";
 import { useData } from "../hooks.ts";
 
@@ -43,7 +44,7 @@ function Review({ app, resume }: { app: ApplicationDetail; resume: NonNullable<A
 
   const html = useMemo(() => {
     const page = (mode: ReviewMode, marks = true) =>
-      resumeHtml(resume.tailored, { mode, original: resume.original, changed: marks ? changed : [] });
+      resumeHtml(resume.tailored, { mode, original: resume.original, changed: marks ? changed : [] }, RESUME_FONTS);
     return {
       changes: page("changes"),
       original: page("original"),
@@ -51,6 +52,8 @@ function Review({ app, resume }: { app: ApplicationDetail; resume: NonNullable<A
       final: page("tailored", false),
     };
   }, [resume, changed]);
+
+  const paper = pageOf(resume.tailored);
 
   const show = (n: number) => {
     setActive(n);
@@ -104,15 +107,15 @@ function Review({ app, resume }: { app: ApplicationDetail; resume: NonNullable<A
         </aside>
 
         <main className="order-1 min-w-0 lg:order-2">
-          {view === "changes" && <ResumePage ref={pageRef(0)} html={html.changes} maxScale={1} />}
+          {view === "changes" && <ResumePage ref={pageRef(0)} html={html.changes} page={paper} maxScale={1} />}
           {view === "compare" && (
             <div className="grid gap-6 xl:grid-cols-2">
-              <ResumePage ref={pageRef(0)} html={html.original} label="Original" />
-              <ResumePage ref={pageRef(1)} html={html.tailored} label="Tailored" />
+              <ResumePage ref={pageRef(0)} html={html.original} page={paper} label="Original" />
+              <ResumePage ref={pageRef(1)} html={html.tailored} page={paper} label="Tailored" />
             </div>
           )}
           {view === "final" && (
-            <ResumePage ref={pageRef(0)} html={html.final} maxScale={1} label="Exactly what we upload" />
+            <ResumePage ref={pageRef(0)} html={html.final} page={paper} maxScale={1} label="Exactly what we upload" />
           )}
         </main>
       </div>

@@ -4,8 +4,8 @@
  */
 
 import { type Experimental_EvaluationModel, experimental_evaluate } from "ai";
-
 import { TAILORING } from "../config.ts";
+import { isSkillsPath } from "../resume/edits.ts";
 import { resumeToText } from "../resume/text.ts";
 import type { Edit, Requirement, Resume } from "../schemas/index.ts";
 import { droppedFacts, inventedNumbers, inventedTerms } from "./rules.ts";
@@ -17,12 +17,12 @@ export async function verifyEdits(
   jev: Experimental_EvaluationModel,
 ): Promise<Edit[]> {
   // A skills reorder was already proven safe in code (same skills, new order).
-  for (const e of edits) if (e.path === "skills" && e.status === "applied") e.truth = 1;
+  for (const e of edits) if (isSkillsPath(e.path) && e.status === "applied") e.truth = 1;
 
   // 1. Hard rules in code: no new numbers, no technologies the resume never mentions.
   const resumeText = resumeToText(original);
   const jobKeywords = requirements.flatMap((r) => r.keywords);
-  for (const e of edits.filter((e) => e.status === "applied" && e.path !== "skills")) {
+  for (const e of edits.filter((e) => e.status === "applied" && !isSkillsPath(e.path))) {
     const numbers = inventedNumbers(e.before, e.after);
     const terms = inventedTerms(e.before, e.after, resumeText, jobKeywords);
     const dropped = droppedFacts(e.before, e.after);
@@ -41,7 +41,7 @@ export async function verifyEdits(
 
   // 2. Jev, one focused question per line: does the rewrite claim anything the original line doesn't?
   // Small state on purpose (the two lines and the skills), since Jev is more accurate without noise.
-  const toCheck = edits.filter((e) => e.status === "applied" && e.path !== "skills");
+  const toCheck = edits.filter((e) => e.status === "applied" && !isSkillsPath(e.path));
   if (toCheck.length === 0) return edits;
   const result = await experimental_evaluate({
     model: jev,

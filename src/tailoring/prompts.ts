@@ -22,5 +22,5 @@ Example. Job wants event-driven microservices with Kafka.
               concurrency-control library (JAR)"
   Bad:       "Designed and built a reusable backend concurrency-control library ..."   (only inserted a keyword)
 
-"skills": you may only reorder it (most relevant first). Never add or remove a skill.
+"skills" and "skills.<n>" (one skill group): you may only reorder it (most relevant first). Never add or remove a skill.
 Return only lines that you genuinely improve for this job, at most a handful.`;

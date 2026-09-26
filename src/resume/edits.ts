@@ -1,15 +1,21 @@
 /**
  * The parts of a resume that tailoring may change, addressed by a path:
- *   "summary"                    the summary paragraph (only if the resume has one)
- *   "skills"                     the skills list, as "a, b, c" (reorder only)
- *   "experience.<i>.bullets.<j>" one experience bullet
- *   "projects.<i>.bullets.<j>"   one project bullet
- * Company names, titles, dates and education are never editable.
+ *   "summary"                              the summary paragraph (only if the resume has one)
+ *   "skills.<g>"                           one skill group, as "a, b, c" (reorder only)
+ *   "skills"                               the skills list, for resumes without groups (reorder only)
+ *   "experience.<i>.bullets.<j>"           one experience bullet
+ *   "projects.<i>.bullets.<j>"             one project bullet
+ *   "sections.<s>.entries.<e>.bullets.<j>" one bullet of another section (e.g. achievements)
+ * Company names, titles, dates, headings and education are never editable.
  */
 
 import type { Resume } from "../schemas/index.ts";
 
-const EDITABLE = /^(summary|skills|(experience|projects)\.(\d+)\.bullets\.(\d+))$/;
+const EDITABLE =
+  /^(summary|skills(?:\.(\d+))?|(experience|projects)\.(\d+)\.bullets\.(\d+)|sections\.(\d+)\.entries\.(\d+)\.bullets\.(\d+))$/;
+
+/** Skills lines may only be reordered, never reworded. */
+export const isSkillsPath = (path: string) => /^skills(\.\d+)?$/.test(path);
 
 export interface EditableLine {
   path: string;
@@ -30,7 +36,18 @@ export function editableLines(r: Resume): EditableLine[] {
       });
     });
   }
-  if (r.skills.length) lines.push({ path: "skills", text: r.skills.join(", ") });
+  r.sections.forEach((section, s) => {
+    section.entries.forEach((entry, e) => {
+      entry.bullets.forEach((text, j) => {
+        lines.push({ path: `sections.${s}.entries.${e}.bullets.${j}`, text });
+      });
+    });
+  });
+  if (r.skillGroups.length) {
+    r.skillGroups.forEach((g, i) => {
+      if (g.items.length) lines.push({ path: `skills.${i}`, text: g.items.join(", ") });
+    });
+  } else if (r.skills.length) lines.push({ path: "skills", text: r.skills.join(", ") });
   return lines;
 }
 
@@ -40,8 +57,9 @@ export function getText(r: Resume, path: string): string | null {
   if (!m) return null;
   if (path === "summary") return r.summary;
   if (path === "skills") return r.skills.length ? r.skills.join(", ") : null;
-  const section = m[2] === "experience" ? r.experience : r.projects;
-  return section[Number(m[3])]?.bullets[Number(m[4])] ?? null;
+  if (m[2] !== undefined) return r.skillGroups[Number(m[2])]?.items.join(", ") || null;
+  if (m[3]) return (m[3] === "experience" ? r.experience : r.projects)[Number(m[4])]?.bullets[Number(m[5])] ?? null;
+  return r.sections[Number(m[6])]?.entries[Number(m[7])]?.bullets[Number(m[8])] ?? null;
 }
 
 /** A copy of the resume with the text at `path` replaced. The path must exist (check with getText). */
@@ -51,7 +69,12 @@ export function setText(r: Resume, path: string, text: string): Resume {
   if (!m || getText(r, path) === null) throw new Error(`Not an editable path: ${path}`);
   if (path === "summary") copy.summary = text;
   else if (path === "skills") copy.skills = splitSkills(text);
-  else (m[2] === "experience" ? copy.experience : copy.projects)[Number(m[3])]!.bullets[Number(m[4])] = text;
+  else if (m[2] !== undefined) {
+    copy.skillGroups[Number(m[2])]!.items = splitSkills(text);
+    copy.skills = [...new Set(copy.skillGroups.flatMap((g) => g.items))];
+  } else if (m[3])
+    (m[3] === "experience" ? copy.experience : copy.projects)[Number(m[4])]!.bullets[Number(m[5])] = text;
+  else copy.sections[Number(m[6])]!.entries[Number(m[7])]!.bullets[Number(m[8])] = text;
   return copy;
 }
 

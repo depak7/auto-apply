@@ -14,7 +14,7 @@ import type { Experimental_EvaluationModel, LanguageModel } from "ai";
 import { decisionModel, rewriteModel } from "../ai/models.ts";
 import { TAILORING } from "../config.ts";
 import { scoreResume } from "../matching/scoring.ts";
-import { setText } from "../resume/edits.ts";
+import { isSkillsPath, setText } from "../resume/edits.ts";
 import type { Edit, Resume, ScoreResult, TailorResult } from "../schemas/index.ts";
 import { proposeEdits, repairEdits } from "./propose.ts";
 import { isBetter, notWorse, pickTargets } from "./targets.ts";
@@ -67,8 +67,8 @@ export async function tailorResume(original: Resume, before: ScoreResult, models
 
     // A skills reorder is kept on its own merits: scoring ignores order, but a recruiter reading
     // the resume does not. Text edits must earn their place by raising the score.
-    const reorders = good.filter((e) => e.path === "skills");
-    const rewrites = good.filter((e) => e.path !== "skills");
+    const reorders = good.filter((e) => isSkillsPath(e.path));
+    const rewrites = good.filter((e) => !isSkillsPath(e.path));
     current = reorders.reduce((r, e) => setText(r, e.path, e.after), current);
     if (rewrites.length === 0) break;
 

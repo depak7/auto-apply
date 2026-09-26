@@ -234,8 +234,23 @@ function ResumeDetails({ id }: { id: string }) {
       </div>
     );
   const r: Resume = record.data.resume;
+  const links = r.contactLinks.length ? r.contactLinks : r.links.map((url) => ({ label: url, url }));
   return (
     <div className="mt-6 space-y-6 border-t border-zinc-100 pt-6">
+      {(r.headline || links.length > 0) && (
+        <div className="space-y-2">
+          {r.headline && <p className="text-[15px] font-medium text-zinc-800">{r.headline}</p>}
+          {links.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {links.map((l) => (
+                <ExternalLink key={l.url} href={l.url}>
+                  {l.label}
+                </ExternalLink>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {r.summary && <p className="text-[15px] leading-relaxed text-zinc-700">{r.summary}</p>}
 
       {r.experience.length > 0 && (
@@ -271,30 +286,95 @@ function ResumeDetails({ id }: { id: string }) {
         </Section>
       )}
 
-      {r.skills.length > 0 && (
-        <Section title="Skills">
-          <div className="flex flex-wrap gap-1.5">
-            {r.skills.map((s) => (
-              <span key={s} className="rounded-md bg-zinc-100 px-2 py-1 text-sm text-zinc-700">
-                {s}
-              </span>
+      {r.projects.length > 0 && (
+        <Section title="Projects">
+          <ul className="space-y-2">
+            {r.projects.map((p) => (
+              <li key={p.name} className="flex flex-wrap items-baseline gap-x-3 text-[15px]">
+                <span className="font-medium text-zinc-900">{p.name}</span>
+                {p.links.map((l) => (
+                  <ExternalLink key={l.url} href={l.url}>
+                    {l.label}
+                  </ExternalLink>
+                ))}
+              </li>
             ))}
-          </div>
+          </ul>
         </Section>
       )}
 
-      {(r.projects.length > 0 || r.certifications.length > 0) && (
-        <p className="text-sm text-zinc-500">
-          {[
-            r.projects.length && `${r.projects.length} project${r.projects.length === 1 ? "" : "s"}`,
-            r.certifications.length &&
-              `${r.certifications.length} certification${r.certifications.length === 1 ? "" : "s"}`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+      {r.sections.map((section) => (
+        <Section key={section.title} title={section.title}>
+          <ul className="list-disc space-y-1.5 pl-5 text-[15px] text-zinc-700 marker:text-zinc-300">
+            {section.entries.flatMap((e) => [
+              ...(e.heading
+                ? [
+                    <li key={`h-${e.heading}`} className="font-medium text-zinc-900">
+                      {e.heading}
+                    </li>,
+                  ]
+                : []),
+              ...e.bullets.map((b) => <li key={b}>{b}</li>),
+            ])}
+          </ul>
+        </Section>
+      ))}
+
+      {r.skills.length > 0 && (
+        <Section title="Skills">
+          {r.skillGroups.length > 0 ? (
+            <dl className="space-y-2.5">
+              {r.skillGroups.map((g) => (
+                <div key={g.label ?? g.items.join()} className="grid gap-1.5 sm:grid-cols-[140px_1fr]">
+                  <dt className="text-sm font-medium text-zinc-500">{g.label ?? "Skills"}</dt>
+                  <dd className="flex flex-wrap gap-1.5">
+                    {g.items.map((item) => (
+                      <SkillChip key={item}>{item}</SkillChip>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {r.skills.map((item) => (
+                <SkillChip key={item}>{item}</SkillChip>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {r.certifications.length > 0 && (
+        <Section title="Certifications">
+          <ul className="list-disc space-y-1 pl-5 text-[15px] text-zinc-700 marker:text-zinc-300">
+            {r.certifications.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </Section>
       )}
     </div>
+  );
+}
+
+function SkillChip({ children }: { children: string }) {
+  return <span className="rounded-md bg-zinc-100 px-2 py-1 text-sm text-zinc-700">{children}</span>;
+}
+
+/** A link from the resume: shows its label, opens the real address. */
+function ExternalLink({ href, children }: { href: string; children: string }) {
+  if (!/^https?:/i.test(href)) return <span className="text-zinc-600">{children}</span>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={href}
+      className="font-medium text-brand-700 underline decoration-brand-200 underline-offset-2 hover:decoration-brand-600"
+    >
+      {children}
+    </a>
   );
 }
 

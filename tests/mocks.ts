@@ -4,7 +4,7 @@
 
 import { Experimental_EvaluationMockModelV4, MockLanguageModelV4 } from "ai/test";
 
-import type { Resume } from "../src/schemas/index.ts";
+import { Resume } from "../src/schemas/index.ts";
 
 /** A text model that always replies with `replyText` (or, given a list, each in turn, repeating the last). */
 export function mockTextModel(replyText: string | string[]) {
@@ -49,7 +49,8 @@ export function mockJev(scores: Record<string, number>, confidence: Record<strin
   return mockJevWith((id) => ({ type: "score", score: scores[id] ?? 0 }), confidence);
 }
 
-export const SAMPLE_RESUME: Resume = {
+/** A resume as stored before skill groups, sections, and links existed: the defaults fill them in. */
+export const SAMPLE_RESUME: Resume = Resume.parse({
   name: "Asha Rao",
   email: "asha@example.com",
   phone: null,
@@ -63,4 +64,44 @@ export const SAMPLE_RESUME: Resume = {
   projects: [],
   skills: ["Python", "Ceph"],
   certifications: [],
-};
+});
+
+/** A resume laid out like a typical one-page LaTeX resume. */
+export const LAID_OUT = Resume.parse({
+  ...SAMPLE_RESUME,
+  name: "ASHA RAO",
+  headline: "Site Reliability Engineer — Storage",
+  contactLinks: [{ label: "GitHub", url: "https://github.com/asha" }],
+  skillGroups: [
+    { label: "Languages", items: ["Python", "Go"] },
+    { label: "Storage", items: ["Ceph"] },
+  ],
+  skills: ["Python", "Go", "Ceph"],
+  experience: [{ ...SAMPLE_RESUME.experience[0]!, tech: "Ceph, Python", bold: ["Ceph"] }],
+  projects: [
+    { name: "Stor – S3 gateway", links: [{ label: "Live", url: "https://stor.dev/" }], bullets: ["Built it"] },
+  ],
+  sections: [
+    {
+      title: "Achievements & Open Source",
+      entries: [
+        {
+          heading: null,
+          subheading: null,
+          date: null,
+          location: null,
+          bullets: ["Hackathon — 1st: Won"],
+          bold: ["Hackathon — 1st:"],
+        },
+      ],
+    },
+  ],
+  layout: [
+    { kind: "skills", title: "Technical Skills" },
+    { kind: "experience", title: "Experience" },
+    { kind: "other", title: "Achievements & Open Source" },
+    { kind: "projects", title: "Projects" },
+    { kind: "education", title: "Education" },
+  ],
+  page: "letter",
+});
