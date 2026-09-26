@@ -17,6 +17,11 @@ FROM node:25-bookworm-slim
 WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY package.json package-lock.json ./
+# ca-certificates: the system's root certificates. Temporal's native client verifies Temporal
+# Cloud's TLS certificate against them (the slim base image has none).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 RUN npm ci --omit=dev --ignore-scripts \
  && npm install --no-save tsx \
  && npx playwright install --with-deps --only-shell chromium \
