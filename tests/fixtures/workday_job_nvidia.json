@@ -1,0 +1,37 @@
+{
+  "jobPostingInfo": {
+    "id": "e197b3ffb77f102fc60f579474340000",
+    "title": "Senior HPC Storage Engineer",
+    "jobDescription": "<p>NVIDIA has been transforming computer graphics, PC gaming, and accelerated computing for more than 25 years. It\u2019s a unique legacy of innovation that\u2019s fueled by great technology\u2014and amazing people. Today, we\u2019re tapping into the unlimited potential of AI to define the next era of computing. An era in which our GPU acts as the brains of computers, robots, and self-driving cars that can understand the world. Doing what\u2019s never been done before takes vision, innovation, and the world\u2019s best talent. As an NVIDIAN, you\u2019ll be immersed in a diverse, supportive environment where everyone is inspired to do their best work. Come join the team and see how you can make a lasting impact on the world.</p><p></p><p>As a member of the HW Infrastructure Storage Strategy team, you will provide leadership in the research, design and implementation of ground breaking fast storage solutions to enable runs of demanding high performance computing, and computationally intensive workloads. We seek an expert to identify architectural changes encompassing file, block, and object storage, to cater to the scaling and performance requirements of an expanding cloud infrastructure. As an expert, you will help us with the next-gen storage solutions strategic challenges we encounter with storage design for large scale, high performance workloads, evolving our private/public cloud strategy, capacity modelling, and growth planning across our global computing environment.</p><p></p><p><b>What you&#39;ll be doing:</b></p><ul><li><p>Research and analyze existing internal distributed storage services.</p></li><li><p>Research, design, and implement scalable, next-gen distributed storage services for HPC workloads, optimizing both performance and cost-effectiveness to meet NVIDIA\u2019s growing infrastructure needs</p></li><li><p>Develop tooling to automate management of large-scale infrastructure environments, to automate operational monitoring and alerting, and to enable self-service consumption of resources.</p></li><li><p>Detail the general procedures and practices, perform technology evaluations, related to distributed file systems.</p></li><li><p>Collaborate across teams to better understand developers&#39; workflows and capture their infrastructure requirements.</p></li><li><p>Influence and guide methodologies for building, testing, and deploying applications to ensure efficient performance and resource utilization.</p></li><li><p>Supporting our researchers to run their flows on our clusters including performance analysis and optimizations of deep learning workflows</p></li><li><p>Root cause analysis and suggest corrective action for problems large and small scales</p></li></ul><p></p><p><b>What we need to see:</b></p><ul><li><p>Bachelor\u2019s degree in Computer Science, Electrical Engineering or related field or equivalent experience.</p></li><li><p>8&#43; years of experience designing and/or operating large scale storage infrastructure.</p></li><li><p>Experience analyzing and tuning storage performance for a variety of workloads.</p></li><li><p>Proficient in Centos/RHEL and/or Ubuntu Linux distros including Python programming and bash scripting</p></li><li><p>In depth understanding of container technologies like Docker, Enroot</p></li></ul><p></p><p><b>Ways to stand out from the crowd:</b></p><ul><li><p>Distributed Storage Expertise: Extensive experience with parallel and distributed filesystems (Ceph, Weka.io, Vast, Lustre, GPFS) and Linux storage kernel development.</p></li><li><p>GPU &amp; AI Infrastructure: Proficient with NVIDIA GPUs, CUDA programming, and NCCL, including performance benchmarking via MLPerf.</p></li><li><p>Hardware &amp; Storage Engineering: Deep familiarity with storage hardware (HDDs, SSDs, NVMe), enclosures, and specialized appliances like Network Appliance.</p></li><li><p>Advanced Networking: Strong background in Software Defined Networking (SDN) and high-performance networking for AI/HPC clusters.</p></li><li><p>Deep Learning Frameworks: Practical experience applying industry-standard frameworks, specifically PyTorch and TensorFlow.</p></li></ul><p></p><p>NVIDIA offers highly competitive salaries and a comprehensive benefits package. We have some of the most resourceful and talented people in the world working for us and, due to unprecedented growth, our extraordinary engineering teams are growing fast. If you&#39;re a creative and autonomous engineer with real passion for technology, we want to hear from you. Widely considered to be one of the technology world\u2019s most desirable employers, NVIDIA offers highly competitive salaries and a comprehensive benefits package. As you plan your future, see what we can offer to you and your family <a href=\"http://www.nvidiabenefits.com/\" target=\"_blank\">www.nvidiabenefits.com/</a></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Your base salary will be determined based on your location, experience, and the pay of employees in similar positions. The base salary range is 184,000 USD - 287,500 USD for Level 4, and 224,000 USD - 356,500 USD for Level 5.<div><div><div><div><div><div><div><p></p><p><span>You will also be eligible for equity and <a href=\"https://www.nvidia.com/en-us/benefits/\" target=\"_blank\">benefits</a>.</span></p><p></p></div></div></div></div></div></div></div>Applications for this job will be accepted at least until September 28, 2026.<p></p><p>This posting is for an existing vacancy.\u00a0</p><p>NVIDIA uses AI tools in its recruiting processes.</p><p></p>NVIDIA is committed to fostering an inclusive work environment and proud to be an equal opportunity employer. As we highly value diversity in our current and future employees, we do not discriminate (including in our hiring and promotion practices) on the basis of race, religion, color, national origin, gender, gender expression, sexual orientation, age, marital status, veteran status, disability status or any other characteristic protected by law.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>",
+    "location": "US, CA, Santa Clara",
+    "additionalLocations": ["US, TX, Austin"],
+    "postedOn": "Posted Today",
+    "startDate": "2026-09-24",
+    "timeType": "Full time",
+    "jobReqId": "JR2014997",
+    "jobPostingId": "Senior-HPC-Storage-Engineer_JR2014997",
+    "jobPostingSiteId": "NVIDIAExternalCareerSite",
+    "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+      "descriptor": "US, CA, Santa Clara",
+      "country": {
+        "descriptor": "United States of America",
+        "id": "bc33aa3152ec42d4995f4791a106ed09",
+        "alpha2Code": "US"
+      }
+    },
+    "externalUrl": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Senior-HPC-Storage-Engineer_JR2014997",
+    "questionnaireId": "028095df097b1001ac9358c586600000"
+  },
+  "hiringOrganization": {
+    "name": "2100 NVIDIA USA",
+    "url": ""
+  },
+  "userAuthenticated": false
+}

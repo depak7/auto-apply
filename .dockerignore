@@ -1,0 +1,10 @@
+node_modules
+data
+dumps
+samples
+.browser-profile
+.env
+.idea
+tests
+tools
+web/dist

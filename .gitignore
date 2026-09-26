@@ -1,0 +1,7 @@
+node_modules/
+.env
+.browser-profile/
+dumps/
+samples/
+data/
+web/dist/

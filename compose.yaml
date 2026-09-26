@@ -1,0 +1,82 @@
+# The whole system on one machine (a small VM is enough to start). Settings come from .env.
+#
+#   With Temporal Cloud (TEMPORAL_* set in .env):   docker compose up -d --build
+#   With a local Temporal server:                    docker compose --profile local-temporal up -d --build
+#
+# The app is on http://localhost:3000 (and the local Temporal UI, if used, on :8233).
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: autoapply
+      POSTGRES_PASSWORD: autoapply
+      POSTGRES_DB: autoapply
+    ports: ["5433:5432"]            # host port 5433 for local development (npm run db); remove when deploying
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoapply -d autoapply"]
+      interval: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Local Temporal, only with `--profile local-temporal`. With Temporal Cloud, leave it off and set
+  # TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE and TEMPORAL_API_KEY in .env.
+  temporal:
+    profiles: ["local-temporal"]
+    image: temporalio/temporal:latest
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/temporal/temporal.db"]
+    user: root                      # a fresh volume is owned by root; the image's own user can't write to it
+    ports: ["8233:8233"]           # Temporal UI
+    volumes: [temporal:/temporal]
+    healthcheck:                    # the other services wait for this instead of crash-looping
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      interval: 3s
+      retries: 40
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: ["npm", "run", "api"]
+    env_file: .env
+    environment:
+      TEMPORAL_ADDRESS: "${TEMPORAL_ADDRESS:-temporal:7233}"
+      DATABASE_URL: "postgres://autoapply:autoapply@postgres:5432/autoapply"
+    ports: ["3000:3000"]
+    volumes: [data:/data]
+    depends_on:
+      temporal: { condition: service_healthy, required: false }
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:                           # fetch, score, tailor, render
+    build: .
+    command: ["npm", "run", "worker"]
+    env_file: .env
+    environment:
+      TEMPORAL_ADDRESS: "${TEMPORAL_ADDRESS:-temporal:7233}"
+      DATABASE_URL: "postgres://autoapply:autoapply@postgres:5432/autoapply"
+    volumes: [data:/data]
+    depends_on:
+      temporal: { condition: service_healthy, required: false }
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  apply-worker:                     # the browser: fills and submits (one application at a time)
+    build: .
+    command: ["npm", "run", "apply-worker"]
+    env_file: .env
+    environment:
+      TEMPORAL_ADDRESS: "${TEMPORAL_ADDRESS:-temporal:7233}"
+      DATABASE_URL: "postgres://autoapply:autoapply@postgres:5432/autoapply"
+    volumes: [data:/data]
+    shm_size: 1gb                   # Chromium needs more shared memory than Docker's 64 MB default
+    depends_on:
+      temporal: { condition: service_healthy, required: false }
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  temporal:
+  data:
