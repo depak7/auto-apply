@@ -1,10 +1,12 @@
-/** A Workday job posting, as fetched from the public jobs API. */
+/** A job posting, as fetched from its board's public API (Workday, Lever). */
 
 import { z } from "zod";
 
 export const Job = z.object({
+  board: z.enum(["workday", "lever"]).default("workday"), // where it's posted; jobs saved before Lever are Workday
   url: z.string(), // canonical job page URL
-  tenant: z.string(), // Workday tenant, e.g. "nvidia"
+  applyUrl: z.string().nullable().default(null), // the application form, when it has its own URL (Lever)
+  tenant: z.string(), // the company's id on the board, e.g. Workday "nvidia", Lever "brillio-2"
   reqId: z.string(), // e.g. "JR2014997"
   title: z.string(),
   company: z.string(),

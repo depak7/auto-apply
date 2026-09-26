@@ -65,3 +65,20 @@ describe("SecretBox", () => {
     expect(() => new SecretBox("short")).toThrow("32 bytes");
   });
 });
+
+describe("current job", () => {
+  it('treats "Present" as still working there, when parsing and when filling forms', async () => {
+    const { withDerived } = await import("../src/resume/parse.ts");
+    const { buildFacts } = await import("../src/apply/facts.ts");
+    const job = { ...SAMPLE_RESUME.experience[0]!, company: "KaptureCX", end: "Present" };
+    const { links, skills, ...rest } = { ...SAMPLE_RESUME, experience: [job] };
+    expect(withDerived(rest).experience[0]!.end).toBeNull();
+    expect(buildFacts({ ...SAMPLE_RESUME, experience: [job] }, EMPTY_PROFILE, "a@b.c").current_company).toBe(
+      "KaptureCX",
+    );
+    expect(
+      buildFacts({ ...SAMPLE_RESUME, experience: [{ ...job, end: "Nov 2024" }] }, EMPTY_PROFILE, "a@b.c")
+        .current_company,
+    ).toBeNull();
+  });
+});

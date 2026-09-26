@@ -19,10 +19,13 @@ import { ApplicationFailure } from "@temporalio/common";
 import type { Experimental_EvaluationModel, LanguageModel } from "ai";
 import type { Page } from "playwright";
 
+import { boardOf } from "../boards/index.ts";
+import type { JobBoard } from "../boards/types.ts";
 import { type FileStore, fileKeys } from "../files/store.ts";
 import type { SecretBox } from "../lib/secrets.ts";
+import type { Profile } from "../schemas/index.ts";
 import type { Store } from "../store/store.ts";
-import { runAgent } from "./agent.ts";
+import { runAgent, type TraceEntry } from "./agent.ts";
 import { openBrowser } from "./browser.ts";
 import { buildFacts } from "./facts.ts";
 import { settle } from "./guards.ts";
@@ -55,7 +58,11 @@ export function createApplyActivities({
   open = openBrowser,
 }: ApplyDeps) {
   /** Open the application's draft and let the agent bring it to Review. */
-  async function toReview(id: string, status: "APPLYING" | "SUBMITTING", then: (page: Page) => Promise<void>) {
+  async function toReview(
+    id: string,
+    status: "APPLYING" | "SUBMITTING",
+    then: (page: Page, board: JobBoard) => Promise<void>,
+  ) {
     const app = await store.getApplication(id);
     const pdf = app?.pdfKey ? await files.get(app.pdfKey) : null;
     if (!app?.job || !app.tailor || !pdf) {
@@ -63,22 +70,22 @@ export function createApplyActivities({
         `Application ${id} is not ready to apply (job, tailored resume and PDF needed)`,
       );
     }
-    const account = app.userId ? await store.getWorkdayAccount(app.userId) : null;
-    if (!app.userId || !account) {
-      throw ApplicationFailure.nonRetryable("Add your Workday login in your profile, then apply again");
-    }
-    // The password is decrypted only here, in the browser worker, and typed by code (never sent to a model).
-    const creds = { email: account.email, password: secrets.open(account.passwordSealed) };
-    const facts = buildFacts(app.tailor.tailored, await store.getProfile(app.userId), creds.email, {
+    if (!app.userId) throw ApplicationFailure.nonRetryable(`Application ${id} has no owner`);
+    const board = boardOf(app.job);
+    const profile = await store.getProfile(app.userId);
+    const creds = await credentialsFor(app.userId, board, profile);
+    const facts = buildFacts(app.tailor.tailored, profile, creds.email, {
       company: app.job.company,
       tenant: app.job.tenant,
     });
     await store.updateApplication(id, { status, questions: null, error: null });
 
     const session = await open({ headless });
+    heartbeat();
     try {
       const page = await session.context.newPage();
-      await page.goto(app.job.url);
+      await page.goto(board.startUrl(app.job));
+      heartbeat();
       const result = await runAgent({
         page,
         facts,
@@ -86,11 +93,19 @@ export function createApplyActivities({
         resumePdf: { name: resumeFileName(app.tailor.tailored.name), buffer: pdf },
         jev,
         text,
+        board,
         askCode: (question) => waitForCode(id, question, status),
+        onStep: (entry) => {
+          heartbeat(); // alive: a restarted or sleeping machine is noticed within the heartbeat timeout
+          console.log(stepLog(id, entry));
+        },
       });
       await files.put(fileKeys.trace(id, Date.now()), Buffer.from(JSON.stringify(result, null, 2)), "application/json");
+      console.log(`[${id.slice(0, 8)}] run ended: ${result.status}${"reason" in result ? ` (${result.reason})` : ""}`);
 
       if (result.status === "failed") {
+        // Show where it stopped.
+        await store.updateApplication(id, { screenshotKey: await shot(page, id) }).catch(() => {});
         // Otherwise let Temporal's retry policy decide (e.g. the page broke; a fresh browser may do better).
         if (result.retry === false) throw ApplicationFailure.nonRetryable(result.reason);
         throw new Error(result.reason);
@@ -107,11 +122,27 @@ export function createApplyActivities({
         });
         return "needs_input" as const;
       }
-      await then(page);
+      await then(page, board);
       return "at_review" as const;
     } finally {
       await session.close();
     }
+  }
+
+  /**
+   * The email (and, for boards with accounts, the password) the agent types. Workday needs the
+   * user's own login; the password is decrypted only here and typed by code, never sent to a model.
+   * Lever has no accounts: the contact email from the profile.
+   */
+  async function credentialsFor(userId: string, board: JobBoard, profile: Profile) {
+    if (!board.needsLogin) {
+      const email = profile.email ?? (await store.getUser(userId))?.email;
+      if (!email) throw ApplicationFailure.nonRetryable("Add your contact email to your profile, then apply again");
+      return { email, password: "" };
+    }
+    const account = await store.getWorkdayAccount(userId);
+    if (!account) throw ApplicationFailure.nonRetryable("Add your Workday login in your profile, then apply again");
+    return { email: account.email, password: secrets.open(account.passwordSealed) };
   }
 
   /** Show the user a code box (NEEDS_CODE) and wait for the code they type; the browser stays on the page. */
@@ -155,15 +186,16 @@ export function createApplyActivities({
       if ((await store.getApplication(id))?.submitAttemptedAt) {
         await store.updateApplication(id, {
           status: "SUBMIT_UNCONFIRMED",
-          error: "Submit was already clicked once; check Workday",
+          error: "Submit was already clicked once; check the job board",
         });
         return "unconfirmed";
       }
       let result: SubmitOutcome = "unconfirmed";
-      const reached = await toReview(id, "SUBMITTING", async (page) => {
-        const outcome = await clickSubmitOnce(page, async () => {
+      const reached = await toReview(id, "SUBMITTING", async (page, board) => {
+        const recordAttempt = async () => {
           await store.updateApplication(id, { submitAttemptedAt: new Date().toISOString() });
-        });
+        };
+        const outcome = await clickSubmitOnce(page, recordAttempt, 30_000, board);
         const screenshotKey = await shot(page, id, "submitted");
         if (outcome === "confirmed") {
           await store.updateApplication(id, { status: "SUBMITTED", screenshotKey });
@@ -179,6 +211,16 @@ export function createApplyActivities({
       return reached === "at_review" ? result : reached;
     },
   };
+}
+
+/**
+ * One log line per agent step, e.g. `[a86f510d] 14 [My Information] FILL text "Phone Number*" -> typed (facts)`.
+ * Typed values are left out: logs are not the place for a candidate's details.
+ */
+export function stepLog(id: string, e: TraceEntry): string {
+  const result = e.result.replace(/(typed|chose) "[^"]*"/, "$1");
+  const conf = e.confidence == null ? "" : ` p=${e.confidence.toFixed(2)}`;
+  return `[${id.slice(0, 8)}] ${e.n} [${e.step.slice(0, 40)}] ${e.operation}${e.target ? ` ${e.target.slice(0, 80)}` : ""} -> ${result.slice(0, 140)} (${e.ms} ms${conf})`;
 }
 
 /** Tell Temporal the activity is alive while it waits (a no-op outside a Temporal worker, e.g. in tests). */

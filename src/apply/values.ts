@@ -36,13 +36,24 @@ export async function valueFor(
 
   const question =
     field.question && field.question !== field.label ? `${field.question} (${field.label})` : field.label;
+  // A select: the answer must be one of its options (placeholders like "Select..." are not answers).
+  const options =
+    field.kind === "select" ? (field.options ?? []).filter((o) => !/^select\b|^choose\b|^--/i.test(o)) : [];
+  const choices = options.length
+    ? `\nChoose exactly one of these options, copied exactly, or null if the facts don't say:\n${options.map((o) => `- ${o}`).join("\n")}`
+    : "";
   const { output } = await generateText({
     model,
     temperature: 0,
     system: SYSTEM,
     output: Output.object({ schema: Answer }),
-    prompt: `Field: ${question}${field.required ? " (required)" : ""}\n\nCandidate facts:\n${JSON.stringify(facts, null, 2)}`,
+    prompt: `Field: ${question}${field.required ? " (required)" : ""}${choices}\n\nCandidate facts:\n${JSON.stringify(facts, null, 2)}`,
   });
   const value = output.value?.trim();
-  return value ? { value, source: output.source } : { missing: question };
+  if (!value) return { missing: question };
+  if (options.length) {
+    const option = options.find((o) => o.toLowerCase() === value.toLowerCase());
+    return option ? { value: option, source: "facts" } : { missing: question };
+  }
+  return { value, source: output.source };
 }

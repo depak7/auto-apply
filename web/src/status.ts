@@ -19,7 +19,7 @@ export const STATUS: Record<Status, StatusInfo> = {
   CREATED: { label: "Starting", detail: "Getting ready.", tone: "progress", stage: 0, working: true },
   FETCHING: {
     label: "Reading the job",
-    detail: "Reading the job description from Workday.",
+    detail: "Reading the job description.",
     tone: "progress",
     stage: 0,
     working: true,
@@ -69,7 +69,7 @@ export const STATUS: Record<Status, StatusInfo> = {
   },
   APPLYING: {
     label: "Filling in",
-    detail: "Filling in the application on Workday. This takes a few minutes.",
+    detail: "Filling in the application form. This takes a few minutes.",
     tone: "progress",
     stage: 2,
     working: true,
@@ -104,21 +104,22 @@ export const STATUS: Record<Status, StatusInfo> = {
   },
   SUBMITTED: {
     label: "Submitted",
-    detail: "Your application was submitted and Workday confirmed it.",
+    detail: "Your application was submitted, and the job board confirmed it.",
     tone: "success",
     stage: 4,
     working: false,
   },
   SUBMIT_UNCONFIRMED: {
-    label: "Check Workday",
-    detail: "Submit was clicked, but Workday didn't confirm. Check your Workday candidate home before trying again.",
+    label: "Check the job board",
+    detail:
+      "Submit was clicked, but no confirmation appeared. Check the job board (or your email) before trying again.",
     tone: "warning",
     stage: 3,
     working: false,
   },
   ALREADY_APPLIED: {
     label: "Already applied",
-    detail: "Workday says you've already applied to this job with this account, so there is nothing to fill in.",
+    detail: "The job board says you've already applied to this job, so there is nothing to fill in.",
     tone: "muted",
     stage: 4,
     working: false,

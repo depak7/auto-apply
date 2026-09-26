@@ -8,13 +8,13 @@
 
 import { ApplicationFailure } from "@temporalio/common";
 import type { Experimental_EvaluationModel, LanguageModel } from "ai";
+import { fetchJob, JobNotFound, NotAJobURL } from "../boards/index.ts";
 import { type FileStore, fileKeys } from "../files/store.ts";
 import { extractRequirements } from "../matching/requirements.ts";
 import { scoreResume } from "../matching/scoring.ts";
 import { renderResumePdf } from "../resume/pdf.ts";
 import type { Status, Store } from "../store/store.ts";
 import { tailorResume } from "../tailoring/tailor.ts";
-import { fetchJob, JobNotFound, NotWorkdayURL } from "../workday/posting.ts";
 
 export interface Deps {
   store: Store;
@@ -50,7 +50,7 @@ export function createActivities({ store, files, text, jev, render = renderResum
           throw ApplicationFailure.nonRetryable("This job is closed: Workday says it cannot be applied to");
         await store.updateApplication(id, { job });
       } catch (e) {
-        if (e instanceof NotWorkdayURL || e instanceof JobNotFound) throw ApplicationFailure.nonRetryable(e.message);
+        if (e instanceof NotAJobURL || e instanceof JobNotFound) throw ApplicationFailure.nonRetryable(e.message);
         throw e; // network hiccup etc.: let Temporal retry
       }
     },

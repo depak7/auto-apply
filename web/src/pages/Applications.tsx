@@ -1,4 +1,4 @@
-// Home: start an application from a Workday link, and see every application at a glance.
+// Home: start an application from a Workday or Lever link, and see every application at a glance.
 
 import { type FormEvent, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -70,24 +70,21 @@ function NewApplication({ resumeId, loadingResumes }: { resumeId: string | null;
       setBusy(false);
     }
   }
-  const needsLogin = !me.workday;
+  const noWorkdayLogin = !me.workday;
+  const isWorkday = /myworkdayjobs\.com/i.test(url);
 
   return (
     <Card className="p-6 sm:p-8">
       <h1 className="text-2xl font-semibold tracking-tight">Apply to a job</h1>
       <p className="mt-1.5 text-[15px] text-zinc-500">
-        Paste a Workday job link. We'll tailor your resume to it, show you every change, and fill in the application
-        once you approve.
+        Paste a Workday or Lever job link. We'll tailor your resume to it, show you every change, and fill in the
+        application once you approve.
       </p>
 
-      {!loadingResumes && (!resumeId || needsLogin) ? (
+      {!loadingResumes && !resumeId ? (
         <div className="mt-6">
           <Notice tone="info">
-            {!resumeId && needsLogin
-              ? "First, add your resume and the Workday login we apply with."
-              : !resumeId
-                ? "First, add your resume."
-                : "First, add the Workday login we apply with."}{" "}
+            First, add your resume.{" "}
             <Link href="/profile" className="font-semibold underline underline-offset-2">
               Go to Profile
             </Link>
@@ -100,13 +97,23 @@ function NewApplication({ resumeId, loadingResumes }: { resumeId: string | null;
             required
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://company.wd5.myworkdayjobs.com/…/job/…"
+            placeholder="https://jobs.lever.co/… or https://company.wd5.myworkdayjobs.com/…"
             className="min-w-0 flex-1 rounded-lg border-0 bg-zinc-50 px-4 py-3 text-[15px] ring-1 ring-zinc-200 placeholder:text-zinc-400 focus:bg-white focus:ring-2 focus:ring-brand-600 focus:outline-none"
           />
           <Button type="submit" busy={busy} disabled={!resumeId || !url.trim()} className="sm:px-6">
             Tailor & review
           </Button>
         </form>
+      )}
+      {resumeId && isWorkday && noWorkdayLogin && (
+        <div className="mt-3">
+          <Notice tone="info">
+            Workday jobs need the Workday login we apply with.{" "}
+            <Link href="/profile" className="font-semibold underline underline-offset-2">
+              Add it on your profile
+            </Link>
+          </Notice>
+        </div>
       )}
       {error && (
         <div className="mt-3">

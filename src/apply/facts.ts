@@ -5,6 +5,7 @@
 
 import { sameCompany } from "../lib/company.ts";
 import { nameCase, splitPhone } from "../lib/person.ts";
+import { isOngoing } from "../lib/words.ts";
 import type { Profile, Resume } from "../schemas/index.ts";
 
 export type Facts = ReturnType<typeof buildFacts>;
@@ -44,7 +45,7 @@ export function buildFacts(
     address: profile.address,
     links: profile.links.length ? profile.links : (resume?.links ?? []),
     current_title: latest?.title ?? null,
-    current_company: latest ? (latest.end ? null : latest.company) : null,
+    current_company: latest && isOngoing(latest.end) ? latest.company : null,
     skills: resume?.skills ?? [],
     education: resume?.education.map((e) => [e.degree, e.field, e.school, e.end].filter(Boolean).join(", ")) ?? [],
     // "Have you worked for us / our affiliates before?": answered from the resume's employers.

@@ -8,6 +8,7 @@
  * The locale segment is optional. Everything after /job/ identifies the posting.
  */
 
+import { JobNotFound, NotAJobURL } from "../boards/types.ts";
 import { HTTP_TIMEOUT_MS } from "../config.ts";
 import { htmlToText } from "../lib/html.ts";
 import { Job } from "../schemas/index.ts";
@@ -15,11 +16,10 @@ import { Job } from "../schemas/index.ts";
 const HOST_RE = /^(?<tenant>[a-z0-9-]+)\.(?<dc>wd\d+)\.myworkdayjobs\.com$/i;
 const LOCALE_RE = /^[a-z]{2}-[A-Z]{2}$/;
 
-/** The URL is not a Workday job posting. */
-export class NotWorkdayURL extends Error {}
+export { JobNotFound };
 
-/** Workday has no posting at this URL (removed, or a typo). */
-export class JobNotFound extends Error {}
+/** The URL is not a Workday job posting. */
+export class NotWorkdayURL extends NotAJobURL {}
 
 export interface WorkdayJobURL {
   tenant: string; // company id, e.g. "nvidia"
@@ -101,6 +101,7 @@ interface WorkdayJobResponse {
 export function jobFromResponse(jobUrl: WorkdayJobURL, data: WorkdayJobResponse): Job {
   const info = data.jobPostingInfo;
   return Job.parse({
+    board: "workday",
     url: info.externalUrl || jobUrl.jobUrl,
     tenant: jobUrl.tenant,
     reqId: info.jobReqId ?? "",

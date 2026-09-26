@@ -6,10 +6,11 @@
 
 import type { Experimental_EvaluationModel, LanguageModel } from "ai";
 import type { Page } from "playwright";
-
+import type { JobBoard } from "../boards/types.ts";
+import { workday } from "../boards/workday.ts";
 import { type Decision, decide, describe, OPTION_MIN_SUPPORT, optionSupport } from "./decide.ts";
 import type { Facts } from "./facts.ts";
-import { forbiddenClick, isReview, SUBMITTED_URL, settle } from "./guards.ts";
+import { forbiddenClick, openRequiredFields, settle } from "./guards.ts";
 import { type FormField, type PageSnapshot, readPage } from "./page.ts";
 import { valueFor } from "./values.ts";
 
@@ -32,6 +33,8 @@ export interface AgentOptions {
   jev?: Experimental_EvaluationModel;
   text?: LanguageModel;
   maxSteps?: number;
+  /** The job board the form is on (default Workday): its instructions, Submit button and confirmation. */
+  board?: JobBoard;
   onStep?: (entry: TraceEntry, page: Page) => void | Promise<void>;
   /**
    * Workday is asking for a verification code: ask the user, with the browser left open on the
@@ -66,64 +69,74 @@ const MAX_MODEL_FAILURES = 5; // Jev/gateway outages in a row before giving up (
 // Workday's own wording when this account has applied to the job before.
 const ALREADY_APPLIED =
   /you applied for this job on|you(?:'ve| have) already applied|application status\s*application submitted/i;
+// Workday's wording when sign-in is refused. It says the same when the account doesn't exist at this company.
+const WRONG_LOGIN =
+  /wrong email address or password|account might be locked|invalid (?:user ?name|email)(?: address)? or password|incorrect (?:email|password)/i;
+const CREATE_ACCOUNT_HINT =
+  "Sign-in failed: Workday doesn't accept this email and password here. The account probably doesn't exist at this " +
+  'company yet: click "Create Account" and create it with the same email and password. Do not click Sign In again.';
+const WRONG_LOGIN_REASON =
+  "Workday didn't accept your Workday login for this company, even after trying to create the account. " +
+  "Check the email and password on your profile (too many failed sign-ins can also lock the account for a while).";
 
 export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
-  const { page, facts, creds, resumePdf, maxSteps = 120 } = opts;
+  const { page, facts, creds, resumePdf, maxSteps = 120, board = workday } = opts;
   const trace: TraceEntry[] = [];
   const history: string[] = [];
   const memory: Memory = { openDropdown: null, skipped: new Set() };
   let unchanged = 0;
   let reloads = 0;
   let modelFailures = 0;
+  let loginFailures = 0;
+
+  /** Every step, including retries and reloads, is traced and reported (logs, heartbeats). */
+  const record = async (entry: TraceEntry) => {
+    trace.push(entry);
+    await opts.onStep?.(entry, page);
+  };
+  const note = (n: number, snap: PageSnapshot, operation: string, result: string) =>
+    record({ n, step: snap.step?.name ?? "", operation, target: null, result, confidence: null, ms: 0 });
 
   for (let n = 1; n <= maxSteps; n++) {
     await settle(page, 5_000);
     const snap = await readPage(page);
-    if (SUBMITTED_URL.test(snap.url))
-      return { status: "failed", reason: "Application was submitted unexpectedly", trace };
+    if (board.submitted(snap.url)) return { status: "failed", reason: "Application was submitted unexpectedly", trace };
 
     const bodyText = await page.innerText("body").catch(() => "");
     if (ALREADY_APPLIED.test(bodyText)) return { status: "already_applied", trace };
+
+    // Sign-in refused right after clicking Sign In. First time: the account may not exist at this company,
+    // so create it. Second time: stop, since more attempts can lock the account.
+    if (WRONG_LOGIN.test(bodyText) && /^CLICK .*sign ?in/i.test(history.at(-1) ?? "")) {
+      if (++loginFailures >= 2) return { status: "failed", reason: WRONG_LOGIN_REASON, retry: false, trace };
+      history.push(CREATE_ACCOUNT_HINT);
+      await note(n, snap, "SIGN_IN_FAILED", "Workday refused the login: trying Create Account");
+      continue;
+    }
 
     // Workday's own error page asks for a refresh: do that (Workday keeps the draft).
     if (WORKDAY_ERROR_PAGE.test(bodyText)) {
       if (++reloads > MAX_RELOADS)
         return { status: "failed", reason: "Workday keeps showing 'Something went wrong'", trace };
       await page.reload();
-      trace.push({
-        n,
-        step: snap.step?.name ?? "",
-        operation: "RELOAD",
-        target: null,
-        result: "Workday error page: reloaded",
-        confidence: null,
-        ms: 0,
-      });
+      await note(n, snap, "RELOAD", "Workday error page: reloaded");
       continue;
     }
 
     let decision: Decision;
     try {
-      decision = await decide(snap, facts, history, opts.jev, memory.skipped);
+      decision = await decide(snap, facts, history, opts.jev, memory.skipped, board);
       modelFailures = 0;
     } catch (e) {
       // The model service being down is not a reason to lose the application: wait and try again.
       if (++modelFailures > MAX_MODEL_FAILURES)
         return { status: "failed", reason: `Jev unavailable: ${(e as Error).message}`, trace };
-      trace.push({
-        n,
-        step: snap.step?.name ?? "",
-        operation: "RETRY",
-        target: null,
-        result: `Jev call failed, retrying: ${(e as Error).message.slice(0, 80)}`,
-        confidence: null,
-        ms: 0,
-      });
+      await note(n, snap, "RETRY", `Jev call failed, retrying: ${(e as Error).message.slice(0, 120)}`);
       await page.waitForTimeout(5_000 * modelFailures);
       continue;
     }
     // A failed click or fill is recorded and the agent looks again; it does not end the run.
-    const outcome = await act(page, snap, decision, { ...opts, facts, creds, resumePdf, memory }).catch(
+    const outcome = await act(page, snap, decision, { ...opts, facts, creds, resumePdf, memory, board }).catch(
       (e): Outcome => ({ note: `${decision.operation.toLowerCase()} failed: ${(e as Error).message.split("\n")[0]}` }),
     );
 
@@ -136,9 +149,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       confidence: decision.confidence,
       ms: decision.ms,
     };
-    trace.push(entry);
     history.push(`${decision.operation}${decision.target ? ` ${describe(decision.target)}` : ""} -> ${outcome.note}`);
-    await opts.onStep?.(entry, page);
+    await record(entry);
 
     if (outcome.done) return { ...outcome.done, trace };
 
@@ -147,10 +159,15 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     if (unchanged >= STUCK_AFTER) {
       // Stuck with something to ask: ask it. Stuck with nothing to ask: that's a failure, not a question.
       const questions = openQuestions(after);
-      const where = after.step?.name ?? after.heading ?? "this page";
+      const where = after.step?.name || after.heading || "this page";
+      const errors = after.errors.length ? ` (the page says: ${after.errors.join("; ").slice(0, 200)})` : "";
       if (questions.length)
-        return { status: "blocked", reason: `No progress after ${STUCK_AFTER} actions`, questions, trace };
-      return { status: "failed", reason: `Couldn't move forward on "${where}" after ${STUCK_AFTER} tries`, trace };
+        return { status: "blocked", reason: `No progress after ${STUCK_AFTER} actions${errors}`, questions, trace };
+      return {
+        status: "failed",
+        reason: `Couldn't move forward on "${where}" after ${STUCK_AFTER} tries${errors}`,
+        trace,
+      };
     }
   }
   return { status: "failed", reason: `Stopped after ${maxSteps} steps`, trace };
@@ -169,10 +186,11 @@ interface Outcome {
 
 type ActContext = Pick<AgentOptions, "facts" | "creds" | "resumePdf" | "text" | "jev" | "askCode"> & {
   memory: Memory;
+  board: JobBoard;
 };
 
 async function act(page: Page, snap: PageSnapshot, d: Decision, ctx: ActContext): Promise<Outcome> {
-  const { facts, creds, resumePdf, memory, text, jev } = ctx;
+  const { facts, creds, resumePdf, memory, text, jev, board } = ctx;
   // No .first(): if a number ever matched two elements, Playwright errors instead of guessing.
   const el = (f: FormField) => page.locator(`[data-aa-idx="${f.idx}"]`);
 
@@ -184,9 +202,10 @@ async function act(page: Page, snap: PageSnapshot, d: Decision, ctx: ActContext)
 
   switch (d.operation) {
     case "AT_REVIEW":
-      // Trust the progress bar, not the model.
-      if (isReview(snap)) return { note: "reached Review", done: { status: "at_review" } };
-      return { note: "not the Review page yet (progress bar disagrees)" };
+      // Trust the board's own signal (Workday's progress bar, Lever's filled form), not the model.
+      if (board.formComplete(snap))
+        return { note: "form complete: only Submit is left", done: { status: "at_review" } };
+      return { note: "not complete yet (the page disagrees)" };
 
     case "BLOCKED": {
       // Blocked must name what is missing. Re-read (the page may have finished loading since);
@@ -220,7 +239,7 @@ async function act(page: Page, snap: PageSnapshot, d: Decision, ctx: ActContext)
 
     case "CLICK": {
       if (!d.target) return { note: "no target" };
-      const why = forbiddenClick(d.target, snap); // candidates() already excludes these; checked again here
+      const why = forbiddenClick(d.target, snap, board); // candidates() already excludes these; checked again here
       if (why) return { note: `refused: ${why}` };
 
       if (d.target.kind === "dropdown" && d.target.expanded) return { note: "already open: pick an option" };
@@ -281,6 +300,10 @@ async function act(page: Page, snap: PageSnapshot, d: Decision, ctx: ActContext)
         };
       }
       const input = el(d.target);
+      if (d.target.kind === "select") {
+        await input.selectOption({ label: v.value }, { timeout: 5_000 });
+        return { note: `chose "${v.value.slice(0, 40)}" (${v.source})` };
+      }
       await input.fill(v.value, { timeout: 5_000 });
       // Search-style inputs (Workday multiselects) list matches only after Enter.
       if (d.target.kind === "search" || /multiselect/i.test(d.target.automationId ?? "")) await input.press("Enter");
@@ -372,16 +395,20 @@ const openTextFields = (snap: PageSnapshot) =>
     (f) => !f.honeypot && !f.chrome && !f.disabled && f.required && TEXT_KINDS.has(f.kind) && !f.value,
   );
 
-/** Required fields that are still empty or marked invalid, plus the page's error messages. */
+/**
+ * What to ask the user: required fields that are still empty or marked invalid. Never the sign-in
+ * fields (the login is on the profile, not a question), verification codes (asked separately),
+ * or the page's error messages ("Error: Please enter your password" is not a question).
+ */
 function openQuestions(snap: PageSnapshot): string[] {
-  const open = snap.fields
-    .filter(
-      (f) =>
-        !f.honeypot && !f.chrome && f.required && (f.invalid || f.value === "" || f.value == null || f.value === false),
-    )
+  const open = openRequiredFields(snap)
+    .filter((f) => !isLoginField(f) && !isCodeField(f))
     .map((f) => f.question || f.label);
-  return [...new Set([...open, ...snap.errors])];
+  return [...new Set(open)];
 }
+
+const isLoginField = (f: FormField) =>
+  f.kind === "password" || f.kind === "email" || /e-?mail|password/i.test(`${f.label} ${f.question ?? ""}`);
 
 const fingerprint = (s: PageSnapshot) =>
   JSON.stringify([s.url, s.step?.name, s.fields.map((f) => [f.kind, f.label, f.value])]);

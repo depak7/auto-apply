@@ -36,6 +36,7 @@ const work = proxyActivities<Activities>({
 const browser = proxyActivities<ApplyActivities>({
   taskQueue: APPLY_QUEUE,
   startToCloseTimeout: "30 minutes", // filling, plus up to 10 minutes waiting for a verification code
+  heartbeatTimeout: "2 minutes", // the agent heartbeats every step: a lost worker is noticed in 2 minutes, not 30
   retry: { maximumAttempts: 2 },
 });
 
@@ -43,6 +44,7 @@ const browser = proxyActivities<ApplyActivities>({
 const submitter = proxyActivities<ApplyActivities>({
   taskQueue: APPLY_QUEUE,
   startToCloseTimeout: "30 minutes",
+  heartbeatTimeout: "2 minutes",
   retry: { maximumAttempts: 1 },
 });
 

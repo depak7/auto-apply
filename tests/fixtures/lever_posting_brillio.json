@@ -1,0 +1,30 @@
+{
+  "additional": "",
+  "additionalPlain": "",
+  "categories": {
+    "commitment": "Employee",
+    "department": "Digital Engineering",
+    "location": "Bangalore, Karnataka, India",
+    "team": "Digital Engineering : Digital Engineering",
+    "allLocations": ["Bangalore, Karnataka, India"]
+  },
+  "createdAt": 1790335157761,
+  "descriptionPlain": "Senior Engineer\n",
+  "description": "<div><u><b>Senior Engineer</b></u></div>",
+  "id": "170fb4c9-1346-49f1-9014-d56a36cae2c3",
+  "lists": [
+    {
+      "text": "Job requirements",
+      "content": "<div><b>Experience Range:</b> At least 2 to 4 years of hands-on experience in Java fullstack development, including significant exposure to microservices architecture <b>Key Responsibilities:</b></div><li>Design and develop scalable Java-based fullstack applications leveraging microservices architecture to meet business requirements</li><li>Implement and maintain RESTful APIs and backend services using Spring Boot and Hibernate, ensuring robust performance and security</li><li>Build responsive user interfaces with AngularJS or React JS, utilizing advanced features of HTML5, CSS3, and JavaScript</li><li>Integrate applications with relational databases such as MySQL and Oracle RDBMS, optimizing for data integrity, query performance, and scalability</li><li>Containerize and deploy applications using Docker, streamlining development workflows and ensuring consistency across environments</li><li>Collaborate with cross-functional teams to define, design, and deliver new features and enhancements within project timelines</li><li>Troubleshoot and resolve complex technical issues across the application stack, maintaining high availability and reliability</li><li>Optimize application performance and scalability through code reviews, refactoring, and adoption of industry best practices</li><div><b>Required Skills:</b></div><li>Java (advanced proficiency)</li><li>Spring Boot</li><li>Spring Core</li><li>Hibernate</li><li>Microservices architecture</li><li>AngularJS or React JS (advanced)</li><li>Relational database integration with MySQL and Oracle RDBMS</li><li>Docker</li><div><b>Preferred Skills:</b></div><li>Experience implementing CI/CD pipelines and DevOps practices</li><li>Knowledge of cloud platforms such as AWS or Azure</li><li>Familiarity with advanced front-end frameworks (e.g., Vue.js, Svelte)</li><li>Experience with distributed systems or event-driven architectures</li><div><b>Desired Qualifications:</b></div><li>Bachelor's degree in Computer Science, Information Technology, or Software Engineering</li><li>Oracle Certified Professional, Java SE Programmer or equivalent Java certification</li><li>Certification in microservices architecture or cloud technologies (e.g., AWS Certified Developer, Azure Developer Associate)</li>"
+    }
+  ],
+  "text": "Senior Engineer - R01571651",
+  "country": "IN",
+  "workplaceType": "unspecified",
+  "opening": "",
+  "openingPlain": "",
+  "descriptionBody": "<div><u><b>Senior Engineer</b></u></div>",
+  "descriptionBodyPlain": "Senior Engineer\n",
+  "hostedUrl": "https://jobs.lever.co/brillio-2/170fb4c9-1346-49f1-9014-d56a36cae2c3",
+  "applyUrl": "https://jobs.lever.co/brillio-2/170fb4c9-1346-49f1-9014-d56a36cae2c3/apply"
+}

@@ -7,6 +7,7 @@
 import { generateText, type LanguageModel, Output } from "ai";
 
 import { textModel } from "../ai/models.ts";
+import { isOngoing } from "../lib/words.ts";
 import { Resume } from "../schemas/index.ts";
 import { type BoldRun, type PdfInfo, type PdfLink, readPdfInfo } from "./pdf-info.ts";
 
@@ -148,6 +149,8 @@ export function fixLayout(r: Pick<Resume, "layout" | "sections">): Resume["layou
 export function withDerived(r: Omit<Resume, "links" | "skills">): Resume {
   return Resume.parse({
     ...r,
+    // The schema's "current" is a null end date; resumes print "Present".
+    experience: r.experience.map((e) => ({ ...e, end: isOngoing(e.end) ? null : e.end })),
     links: r.contactLinks.map((l) => l.url).filter((u) => !/^(mailto|tel):/i.test(u)),
     skills: [...new Set(r.skillGroups.flatMap((g) => g.items))],
   });

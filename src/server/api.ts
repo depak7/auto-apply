@@ -27,7 +27,7 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { z } from "zod";
-
+import { boardFor, NotAJobURL } from "../boards/index.ts";
 import { type FileStore, fileKeys } from "../files/store.ts";
 import type { SecretBox } from "../lib/secrets.ts";
 import { diffResumes } from "../resume/edits.ts";
@@ -35,7 +35,6 @@ import { isPdf, parseResume } from "../resume/parse.ts";
 import { fillProfileFromResume } from "../resume/profile.ts";
 import { Profile } from "../schemas/index.ts";
 import type { ApplicationRecord, Store } from "../store/store.ts";
-import { NotWorkdayURL, parseWorkdayUrl } from "../workday/posting.ts";
 import type { Workflows } from "../workflows/client.ts";
 import { type AuthConfig, endSession, LOCAL_IDENTITY, sessionUser, startSession, verifyGoogleIdToken } from "./auth.ts";
 
@@ -131,14 +130,15 @@ export function createApi({ store, workflows, files, auth, secrets, parse = pars
     const userId = c.get("userId");
     const input = NewApplication.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ error: "Send JSON {url, resumeId}" }, 400);
+    let board: ReturnType<typeof boardFor>;
     try {
-      parseWorkdayUrl(input.data.url); // reject non-Workday URLs before starting anything
+      board = boardFor(input.data.url); // reject unsupported links before starting anything
     } catch (e) {
-      if (e instanceof NotWorkdayURL) return c.json({ error: e.message }, 400);
+      if (e instanceof NotAJobURL) return c.json({ error: e.message }, 400);
       throw e;
     }
     if (!(await store.getResume(input.data.resumeId, userId))) return c.json({ error: "No such resume" }, 404);
-    if (!(await store.getWorkdayAccount(userId))) {
+    if (board.needsLogin && !(await store.getWorkdayAccount(userId))) {
       return c.json({ error: "Add your Workday login in your profile first", needs: "workday_account" }, 409);
     }
 

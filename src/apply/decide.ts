@@ -10,50 +10,49 @@
 import { type Experimental_EvaluationModel, experimental_evaluate } from "ai";
 
 import { decisionModel } from "../ai/models.ts";
+import type { JobBoard } from "../boards/types.ts";
+import { workday } from "../boards/workday.ts";
 import type { Facts } from "./facts.ts";
 import { actionable, forbiddenClick } from "./guards.ts";
 import type { FormField, PageSnapshot } from "./page.ts";
 
+/** What every board has in common; each board adds its own lines (see src/boards/). */
 export const GOAL = `Complete this job application form for the candidate.
-- On the job description page, click "Apply".
-- If a dialog offers ways to start the application, choose "Apply Manually".
-- The candidate may already have an account: if a "Sign In" link or button is offered, sign in first with the
-  candidate's email and password. Create an account only if sign-in says the account does not exist.
-- Tick any required consent or agreement checkbox.
 - On each page, fill every empty required field using only the candidate facts. Leave fields that already have a value.
 - A dropdown: click it to open the list, then click the option that matches the candidate facts.
+- A select field: FILL it (the system picks the option from the candidate facts).
 - Attach the resume wherever a resume or CV upload is asked.
 - If a verification code is asked (e.g. sent by email), FILL the code field: the system gets the code from the candidate.
-- When every required field on the page is filled, click "Save and Continue" (or "Next").
-- On the Review page, stop: choose AT_REVIEW. Never click Submit.
+- Never click Submit: when the form is complete and only the final Submit is left, choose AT_REVIEW.
 - If a required question cannot be answered from the candidate facts, choose BLOCKED.`;
 
 export const OPERATIONS = {
   CLICK: "Click a button, link, dropdown, list option, checkbox, or radio button",
-  FILL: "Type into an empty text field",
+  FILL: "Type into an empty text field, or choose in a select field",
   UPLOAD: "Attach the resume to a file upload field",
-  AT_REVIEW: "This is the final Review page of the application",
+  AT_REVIEW: "The form is complete and only the final Submit is left (e.g. Workday's Review page)",
   BLOCKED: "A required field is empty and its answer is not in the candidate facts",
   WAIT: "The page is still loading or changing",
 } as const;
 export type Operation = keyof typeof OPERATIONS;
 
 const CLICKABLE = new Set(["button", "link", "option", "dropdown", "checkbox", "radio", "combobox"]);
-const TYPEABLE = new Set(["text", "email", "tel", "password", "textarea", "search", "number", "url"]);
+const TYPEABLE = new Set(["text", "email", "tel", "password", "textarea", "search", "number", "url", "select"]);
 
 // Never useful for moving forward: error summaries ("Error - Phone Number") only scroll to a field,
 // "Back" undoes progress, "Skip to main content" is an accessibility shortcut, and policy links leave the form.
+// "Apply with LinkedIn" (or Indeed) signs in elsewhere and fills from that profile instead of the candidate facts.
 const NOT_FORWARD =
-  /^(errors?|alerts?)\b|errors and alerts found|^back$|back to job posting|skip to main content|privacy|terms of (use|service)|cookie/i;
+  /^(errors?|alerts?)\b|errors and alerts found|^back$|back to job posting|skip to main content|privacy|terms of (use|service)|cookie|apply with (linkedin|indeed|google)/i;
 
 /**
  * Which elements each target question may choose from. Forbidden and trap elements never appear,
  * nor optional fields already skipped for lack of an answer.
  */
-export function candidates(page: PageSnapshot, skipped: Set<string> = new Set()) {
+export function candidates(page: PageSnapshot, skipped: Set<string> = new Set(), board: JobBoard = workday) {
   const usable = page.fields.filter(actionable);
   return {
-    click: usable.filter((f) => CLICKABLE.has(f.kind) && !forbiddenClick(f, page) && !NOT_FORWARD.test(f.label)),
+    click: usable.filter((f) => CLICKABLE.has(f.kind) && !forbiddenClick(f, page, board) && !NOT_FORWARD.test(f.label)),
     fill: usable.filter((f) => TYPEABLE.has(f.kind) && !skipped.has(f.label)),
     upload: page.fields.filter((f) => f.kind === "file" && !f.honeypot), // file inputs are hidden by design
   };
@@ -65,6 +64,7 @@ export function describe(f: FormField): string {
   const parts = [`${f.kind} "${label.slice(0, 120)}"`];
   if (f.required) parts.push("required");
   if (TYPEABLE.has(f.kind)) parts.push(f.value ? `value="${String(f.value).slice(0, 40)}"` : "empty");
+  if (f.kind === "select" && f.options?.length) parts.push(`${f.options.length} options`);
   if (f.kind === "checkbox" || f.kind === "radio") parts.push(f.value ? "checked" : "unchecked");
   if (f.kind === "dropdown")
     parts.push(`shows "${String(f.value ?? "").slice(0, 40)}"`, ...(f.expanded ? ["OPEN: pick an option"] : []));
@@ -86,10 +86,15 @@ export async function decide(
   history: string[],
   model: Experimental_EvaluationModel = decisionModel(),
   skipped: Set<string> = new Set(),
+  board: JobBoard = workday,
 ): Promise<Decision> {
-  const c = candidates(page, skipped);
+  const c = candidates(page, skipped, board);
   const key = (f: FormField) => `e${f.idx}`;
-  const options = (fields: FormField[]) => Object.fromEntries(fields.slice(0, 250).map((f) => [key(f), describe(f)]));
+  // Jev's choice questions need at least two options: a lone element also gets "none of these".
+  const options = (fields: FormField[]) => ({
+    ...Object.fromEntries(fields.slice(0, 250).map((f) => [key(f), describe(f)])),
+    ...(fields.length === 1 ? { none: "None of these" } : {}),
+  });
 
   // Offer only operations that are possible on this page.
   const ops = Object.fromEntries(
@@ -129,7 +134,7 @@ export async function decide(
   const result = await experimental_evaluate({
     model,
     state: {
-      goal: GOAL,
+      goal: `${GOAL}\n${board.goal}`,
       candidate: facts,
       page: {
         step: page.step ? `${page.step.index} of ${page.step.total}: ${page.step.name}` : null,

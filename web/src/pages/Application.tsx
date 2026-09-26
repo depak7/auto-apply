@@ -99,7 +99,7 @@ function Stage({ app, onChange }: { app: ApplicationDetail; onChange: () => void
       );
     case "SUBMIT_UNCONFIRMED":
       return (
-        <Panel title="Please check Workday">
+        <Panel title="Please check the job board">
           <Notice tone="warning">{info.detail}</Notice>
           {app.hasScreenshot && <Screenshot app={app} />}
         </Panel>
@@ -380,8 +380,8 @@ function ReadyToSubmit({ app, onChange }: { app: ApplicationDetail; onChange: ()
   return (
     <Panel title="Ready to submit">
       <p className="-mt-1 text-[15px] text-zinc-600">
-        Everything is filled in on Workday. Check the review page below. When you submit, we press Submit once and wait
-        for Workday to confirm.
+        Everything is filled in. Check the page below. When you submit, we press Submit once and wait for the job board
+        to confirm.
       </p>
       {app.hasScreenshot && <Screenshot app={app} />}
       <div className="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
@@ -480,7 +480,11 @@ function Screenshot({ app }: { app: ApplicationDetail }) {
   const src = files.screenshot(app.id, app.updatedAt);
   return (
     <a href={src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl ring-1 ring-zinc-200">
-      <img src={src} alt="The Workday page as we left it" className="max-h-[520px] w-full object-cover object-top" />
+      <img
+        src={src}
+        alt="The application page as we left it"
+        className="max-h-[520px] w-full object-cover object-top"
+      />
     </a>
   );
 }

@@ -39,7 +39,23 @@
     }
     const wrapperLabel = fieldWrapper(el)?.querySelector("label, legend");
     if (wrapperLabel) return text(wrapperLabel);
-    return text(el.closest("label")) || el.getAttribute("placeholder") || el.getAttribute("name") || "";
+    const wrapping = el.closest("label");
+    return (wrapping && ownText(wrapping)) || el.getAttribute("placeholder") || el.getAttribute("name") || "";
+  };
+
+  // A <label> that wraps its control (Lever does this): its visible text, without the text of the
+  // controls inside it (a select's options, a button's caption) or of hidden status messages.
+  const CONTROL = "select, option, input, textarea, button, a, [role=listbox]";
+  const ownText = (label) => {
+    const parts = [];
+    const walker = document.createTreeWalker(label, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest(CONTROL)) continue;
+      if (parent.checkVisibility && !parent.checkVisibility()) continue;
+      parts.push(node.textContent);
+    }
+    return parts.join(" ").replace(/\s+/g, " ").trim();
   };
 
   const kindOf = (el) => {
@@ -62,6 +78,7 @@
     if (kind === "checkbox" || kind === "radio") return el.checked;
     if (kind === "dropdown" || kind === "button" || kind === "link" || kind === "option") return text(el);
     if (kind === "file") return el.files?.length ? [...el.files].map((f) => f.name) : null;
+    if (kind === "select") return el.value ? (el.selectedOptions[0]?.text.trim() ?? el.value) : ""; // "" while on "Select..."
     return el.value ?? null;
   };
 
@@ -88,10 +105,13 @@
       .filter((t, i, all) => all.indexOf(t) === i);
 
   const requiredOf = (el, label) =>
-    el.required ||
-    el.getAttribute("aria-required") === "true" ||
-    /\*\s*$/.test(label) ||
-    !!fieldWrapper(el)?.querySelector("abbr[title='required'], [aria-label='required']");
+    !["A", "BUTTON"].includes(el.tagName) &&
+    (el.required ||
+      el.getAttribute("aria-required") === "true" ||
+      /\*\s*$/.test(label) ||
+      /✱/.test(label) || // Lever: "Resume/CV ✱"
+      !!fieldWrapper(el)?.querySelector("abbr[title='required'], [aria-label='required']") ||
+      !!el.closest("label")?.querySelector(".required"));
 
   const selector = [
     "input:not([type=hidden])",
